@@ -1,0 +1,7 @@
+{
+  "name": "thinktank",
+  "owner": { "name": "tony8stark" },
+  "plugins": [
+    { "name": "thinktank", "source": "./", "description": "Multi-model panel review and claim-by-claim fact-checking." }
+  ]
+}
