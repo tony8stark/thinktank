@@ -4,7 +4,13 @@
 # Launches codex (sol, astra) and agy (gemini, gemini-flash) heads in parallel on ONE brief.
 # Claude-family heads (opus, sonnet, fable) are launched by Claude via the Agent tool, not here.
 # Writes out/<head>.md and out/<head>.meta.json; prints "THINKTANK DONE ok=N error=M"; exit 0 iff M=0.
+# thinktank.sh --available prints the channels this machine can run, one per line (agent is always there).
 set -u
+if [ "${1:-}" = "--available" ]; then
+  command -v codex >/dev/null && echo codex
+  command -v agy >/dev/null && echo agy
+  echo agent; exit 0
+fi
 RUN="$1"; BRIEF="$2"; shift 2
 HEADS="sol:3"; TIMEOUT=900
 while [ $# -gt 0 ]; do case "$1" in

@@ -22,6 +22,8 @@ Do not fire for opinion or marketing copy, code, translation, or a single fact (
 
 ## 2. Pick the tier
 
+First run `$FC available`: it prints the channels this machine has (`codex`, `agy`, always `agent`). The table assumes `codex`.
+
 | tier | content | runner `--heads` | Agent heads | extras |
 |------|---------|-------------------|-------------|--------|
 | quick | history, geography, descriptions, low-stakes travel trivia | `sol:2` | none | none |
@@ -29,6 +31,8 @@ Do not fire for opinion or marketing copy, code, translation, or a single fact (
 | money | tax, forms, filing, deadlines, penalties, fees, eligibility, contracts; anything that moves money or legal standing | `sol:4` | opus x2 | independent extraction, rehearsal |
 
 Rules: at most 2 Agent heads (Anthropic capacity; two Opus heads cost no extra wall clock because they run alongside codex). Per-claim checking stays at low effort: it is a single-answer task, and higher effort does not help on those; what helps is repeats and search instructions. `gemini` (agy, Gemini 3.8 Flash high, with search_web + read_url only), `luna` and `astra` exist as heads but are opt-in: add them only when the user asks, or as a second opinion on claims whose sources this machine cannot read. `fable` only when the user asks.
+
+**Claude only** (only `agent` printed): `--heads` takes Agent heads only: quick `opus:2`, standard `opus:3`, money `opus:4` (more than two Agent heads is fine here, they are the repeats). Each Agent head checks every claim. Skip `extract` (step 3.2) and `rehearse` (step 6.4), which need codex; extract the claims yourself with extra care for implicit claims and absolutes. `$FC run` has nothing to launch and prints `ok=0 error=0`; skip it. Say "single model family" in the report.
 
 ## 3. Prepare the run
 

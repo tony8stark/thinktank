@@ -4,6 +4,7 @@ adjudication, rewriting) is done by the orchestrating Claude session; this scrip
 that must be deterministic: numbering, briefs, parallel web heads, quote verification, the claim
 matrix, the GPT Pro handoff packet and the ledger.
 
+  available                               print the channels this machine can run (agent is always there)
   setup                                   check codex models, create the agy "factcheck" project
   init    <run> <source-file> [--context "audience, jurisdiction, period"] [--from PARENT_RUN]
   extract <run> [--timeout S]             independent claim extraction by one Sol head (no web)
@@ -58,6 +59,12 @@ def jdump(obj, path):
 
 
 # ---------------------------------------------------------------- setup
+
+def cmd_available(args):
+    for ch in ("codex", "agy"):
+        if shutil.which(ch): print(ch)
+    print("agent")
+
 
 def cmd_setup(args):
     cache = jload(os.path.join(HOME, ".codex", "models_cache.json"), {}) or {}
@@ -222,7 +229,9 @@ def cmd_prep(args):
     chunks = [claims[i * len(claims) // k:(i + 1) * len(claims) // k] for i in range(k)]
     agent_heads = [h for h in heads if h["channel"] == "agent"]
     na = len(agent_heads)
-    agent_part = {h["head"]: (claims if len(chunks) == 1 else claims[j * len(claims) // na:(j + 1) * len(claims) // na])
+    # with no runner heads (Claude only) every Agent head checks every claim: the Agent heads are the repeats.
+    solo = all(h["channel"] == "agent" for h in heads)
+    agent_part = {h["head"]: (claims if len(chunks) == 1 or solo else claims[j * len(claims) // na:(j + 1) * len(claims) // na])
                   for j, h in enumerate(agent_heads)}
     os.makedirs(os.path.join(run, "briefs"), exist_ok=True)
     for old in glob.glob(os.path.join(run, "briefs", "*.md")): os.remove(old)
@@ -952,7 +961,7 @@ def cmd_pro(args):
 
 
 if __name__ == "__main__":
-    cmds = {"setup": cmd_setup, "init": cmd_init, "extract": cmd_extract, "prep": cmd_prep, "run": cmd_run,
+    cmds = {"available": cmd_available, "setup": cmd_setup, "init": cmd_init, "extract": cmd_extract, "prep": cmd_prep, "run": cmd_run,
             "collect": cmd_collect, "packet": cmd_packet, "rehearse": cmd_rehearse, "pro": cmd_pro}
     if len(sys.argv) < 2 or sys.argv[1] not in cmds: print(__doc__); sys.exit(2)
     cmds[sys.argv[1]](sys.argv[2:])

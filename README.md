@@ -16,8 +16,15 @@ Optional reminder hook: copy `hooks/thinktank-check.sh` somewhere and register i
 
 ## Requirements
 
-- [codex CLI](https://github.com/openai/codex), signed in (the default heads are `gpt-6.1-sol` at low effort).
-- Optional: `agy` (Antigravity CLI) for Gemini heads. Without it, drop `gemini` from the panel.
+Only Claude Code is required. The skills detect what else is installed and size the panel from it:
+
+| installed | panel |
+|-----------|-------|
+| Claude Code only | Opus (and Sonnet) heads via the Agent tool; works, but one model family shares blind spots |
+| + [codex CLI](https://github.com/openai/codex), signed in | codex heads (`gpt-6.1-sol`, low effort) carry the repeats, Opus adds a second family; recommended |
+| + `agy` (Antigravity CLI) | adds a Gemini head |
+
+- `python3`; for factcheck also `pdftotext` (PDF quotes) and Google Chrome (headless fetches of JS pages).
 - `python3`; `pdftotext` for PDF quotes; Google Chrome for headless fetches of JS pages (factcheck).
 - Model ids are hardcoded in `scripts/thinktank.sh` and `scripts/factcheck.py`: edit them if your accounts offer different models.
 

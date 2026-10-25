@@ -22,12 +22,24 @@ Announce in one line and continue: `ThinkTank: <n> heads (<spec>) on <topic>`. T
 
 ## 2. Size the panel
 
+First run `bash $TT/scripts/thinktank.sh --available`: it prints the channels this machine has (`codex`, `agy`, always `agent`). Build the spec only from those. When `codex` is there, use the first table; drop `gemini` from it when `agy` is missing.
+
 | task | heads spec | Agent heads |
 |------|-----------|-------------|
 | code review / audit | `sol:3,gemini:1` | opus x1 |
 | brainstorm / architecture | `sol:2,gemini:1` | opus x1 |
 | data conclusion / anomaly | `sol:3,gemini:1` (gemini = 3.8 Flash high, mandatory) | opus x1 |
 | narrow question, small diff | `sol:3` | none |
+
+**Claude only** (only `agent` printed): skip the runner and launch Agent heads only.
+
+| task | Agent heads |
+|------|-------------|
+| code review / audit, data conclusion | opus x3 |
+| brainstorm / architecture | opus x2, sonnet x1 |
+| narrow question, small diff | opus x2 |
+
+In this mode the 2-Agent-head cap and the 2-family rule do not apply; label the report "single model family" (heads from one family share blind spots, so agreement is weaker evidence).
 
 Rules: at least 3 heads and 2 model families; at most 7 heads; at most 2 Agent-tool heads (Anthropic capacity; codex and agy carry the repeats); `sonnet` only as an extra repeat when Opus is unavailable. **Never fable or grok automatically.** Fable is reserved for the user's manual, important work: add `fable:1` (an Agent head with `model: "fable"`) only when the user asks for it. Opus stays at low effort: higher effort costs several times more without a reliable gain in a panel.
 
@@ -49,7 +61,7 @@ Copy `$TT/skills/thinktank/brief-template.md` to `$RUN/brief.md` and fill it. Ru
 
 ## 4. Run everything in one message
 
-In ONE message, call both:
+In ONE message, call both (Claude only: just the Agent heads):
 
 1. Bash, foreground, never Monitor or background:
    `bash $TT/scripts/thinktank.sh "$RUN" "$RUN/brief.md" --heads "<spec>"` (add `--timeout SEC` for long briefs; default 900).
