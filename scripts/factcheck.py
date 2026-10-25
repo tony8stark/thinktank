@@ -16,7 +16,8 @@ matrix, the GPT Pro handoff packet and the ledger.
   pro     <run> --round N --reply FILE            count GPT Pro's findings against our verdicts, log misses
 
 SPEC is a comma list of name[@effort][:count], e.g. "sol:3,gemini:1,opus:1".
-Names: sol luna astra (codex), gemini gemini-flash (agy), opus sonnet fable (Agent tool, general-purpose).
+Names come from heads.json (see heads.py list): codex, agy, opencode, openrouter heads run here; agent heads
+(opus sonnet fable) are launched by the orchestrator with the Agent tool (general-purpose).
 Default codex head is sol (gpt-6.1-sol). astra (gpt-6-astra) is opt-in only."""
 import sys, os, re, json, glob, time, hashlib, shutil, signal, subprocess, unicodedata, difflib, uuid
 import urllib.request, urllib.error, html.parser
@@ -27,12 +28,10 @@ SKILL = os.path.join(os.path.dirname(HERE), "skills", "factcheck")
 HOME = os.path.expanduser("~")
 AGY_DIR = os.path.join(HOME, ".claude", "thinktank", "factcheck-agy")
 LEDGER = os.environ.get("FACTCHECK_LEDGER") or os.path.join(HOME, ".claude", "thinktank", "factcheck-ledger.jsonl")
-HEADS = {  # name -> (channel, model, default effort)
-    "sol": ("codex", "gpt-6.1-sol", "low"), "luna": ("codex", "gpt-6-luna", "medium"),
-    "astra": ("codex", "gpt-6-astra", "low"),  # opt-in only; defaults use sol
-    "gemini": ("agy", "gemini-3.8-flash-high", "-"), "gemini-flash": ("agy", "gemini-3.8-flash-high", "-"),
-    "opus": ("agent", "opus", "low"), "sonnet": ("agent", "sonnet", "low"), "fable": ("agent", "fable", "low"),
-}
+sys.path.insert(0, HERE)
+import heads as headreg  # the shared head registry (heads.json) and the openrouter/opencode channels
+HEADS = {n: (h["channel"], h["model"], h.get("effort", "-")) for n, h in headreg.registry().items()}  # name -> (channel, model, effort)
+WEB = {n for n, h in headreg.registry().items() if h.get("web")}
 VERDICTS = ("supported", "contradicted", "qualify", "outdated", "unverifiable")
 PROBLEM = {"contradicted", "qualify", "outdated"}
 STRONG_KINDS = {"primary", "official"}
@@ -61,9 +60,7 @@ def jdump(obj, path):
 # ---------------------------------------------------------------- setup
 
 def cmd_available(args):
-    for ch in ("codex", "agy"):
-        if shutil.which(ch): print(ch)
-    print("agent")
+    print("\n".join(headreg.available()))
 
 
 def cmd_setup(args):
@@ -130,10 +127,11 @@ def cmd_init(args):
 def parse_spec(spec):
     heads = []
     for part in [p.strip() for p in spec.split(",") if p.strip()]:
-        m = re.fullmatch(r"([a-z-]+)(?:@([a-z]+))?(?::(\d+))?", part)
+        m = re.fullmatch(r"([a-z0-9-]+)(?:@([a-z]+))?(?::(\d+))?", part)
         if not m or m.group(1) not in HEADS: die(f"bad head '{part}' (names: {', '.join(HEADS)})")
         name, eff, n = m.group(1), m.group(2), int(m.group(3) or 1)
         ch, model, deff = HEADS[name]
+        if name not in WEB: die(f"head '{name}' has no web access (web: false in heads.json); factcheck needs it")
         if eff and ch == "agy": die(f"agy effort is baked into the model name; use gemini or gemini-flash, not '{part}'")
         base = name if not eff or eff == deff else f"{name}.{eff}"
         for i in range(1, n + 1):
@@ -199,6 +197,10 @@ def render_claims(claims, offset):
 TOOLS_LINE = {
     "codex": "Use your web search tool for every claim. Do not run shell commands and do not read local files.",
     "agy": "Use ONLY the search_web and read_url tools. Never run shell commands, never read or write files.",
+    "openrouter": "Use your web search results for every claim and cite the page each quote comes from. Copy each quote "
+                  "verbatim, because the quote you report is compared character by character with the live page.",
+    "opencode": "Use ONLY the websearch and webfetch tools. Copy each quote verbatim from the fetched page, because the "
+                "quote you report is compared character by character with the live page.",
     "agent": "Use only WebSearch and WebFetch for checking, Read for the brief and Write for your answer file. "
              "When you WebFetch a page, ask for the exact sentences verbatim, because the quote you report is "
              "compared character by character with the live page.",
@@ -305,6 +307,12 @@ def run_head(run, h, timeout):
             if rc == 0 and os.path.exists(ans) and os.path.getsize(ans): shutil.copy(ans, out)
             else: status = "error"
             lf.flush(); p, c, r = codex_tokens(log)
+        elif h["channel"] in headreg.CALLS:
+            scr = os.path.join(run, "tmp", job); os.makedirs(scr, exist_ok=True)
+            call = headreg.CALLS[h["channel"]]
+            kw = {"cwd": scr} if h["channel"] == "opencode" else {}
+            status, p, c, r, cost = call({"model": h["model"], "effort": h["effort"]}, bf.read(), out, lf, timeout,
+                                         web=True, effort=h["effort"], **kw)
         else:  # agy
             cmd = ["agy", "-p", bf.read(), "--project", "factcheck", "--model", h["model"],
                    "--output-format", "json", "--print-timeout", f"{timeout}s"]

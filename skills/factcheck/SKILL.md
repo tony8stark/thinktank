@@ -22,7 +22,7 @@ Do not fire for opinion or marketing copy, code, translation, or a single fact (
 
 ## 2. Pick the tier
 
-First run `$FC available`: it prints the channels this machine has (`codex`, `agy`, always `agent`). The table assumes `codex`.
+First run `$FC available`: it prints the channels this machine has (`codex`, `agy`, `opencode`, `openrouter`, always `agent`). The table assumes `codex`. Without codex but with `openrouter`, use `or-gpt` in place of `sol` (same counts) and, for standard and money, add `or-deepseek:1` as a second family; they run inside `run` with OpenRouter's web search and cost money per call. An `opencode` head works the same way if the user added one with `"web": true`. `prep` refuses a head whose `web` is false.
 
 | tier | content | runner `--heads` | Agent heads | extras |
 |------|---------|-------------------|-------------|--------|

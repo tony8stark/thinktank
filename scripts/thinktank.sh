@@ -1,33 +1,27 @@
 #!/bin/bash
 # thinktank.sh <run-dir> <brief.md> [--heads "sol:3,gemini:1"] [--timeout SEC]
 # Default codex head is sol (gpt-6.1-sol); astra is opt-in only.
-# Launches codex (sol, astra) and agy (gemini, gemini-flash) heads in parallel on ONE brief.
+# Launches codex, agy, opencode and openrouter heads in parallel on ONE brief. Heads come from heads.json (heads.py).
 # Claude-family heads (opus, sonnet, fable) are launched by Claude via the Agent tool, not here.
 # Writes out/<head>.md and out/<head>.meta.json; prints "THINKTANK DONE ok=N error=M"; exit 0 iff M=0.
 # thinktank.sh --available prints the channels this machine can run, one per line (agent is always there).
 set -u
-if [ "${1:-}" = "--available" ]; then
-  command -v codex >/dev/null && echo codex
-  command -v agy >/dev/null && echo agy
-  echo agent; exit 0
-fi
+HEADS_PY="$(dirname "$0")/heads.py"
+[ "${1:-}" = "--available" ] && exec python3 "$HEADS_PY" available
 RUN="$1"; BRIEF="$2"; shift 2
 HEADS="sol:3"; TIMEOUT=900
 while [ $# -gt 0 ]; do case "$1" in
   --heads) HEADS="$2"; shift 2;; --timeout) TIMEOUT="$2"; shift 2;;
   *) echo "unknown arg $1" >&2; exit 2;; esac; done
 
-model_of(){ case "$1" in
-  sol) echo "codex gpt-6.1-sol low";; astra) echo "codex gpt-6-astra low";; gemini) echo "agy gemini-3.8-flash-high -";;
-  gemini-flash) echo "agy gemini-3.8-flash-high -";; opus|sonnet|fable) echo "agent $1 -";;
-  *) return 1;; esac; }
+model_of(){ python3 "$HEADS_PY" model "$1"; }
 
 # validate the spec before touching the filesystem, so a typo fails before anything is launched
 JOBS=()
 IFS=, read -ra PARTS <<< "$HEADS"
 for p in "${PARTS[@]}"; do
   name="${p%%:*}"; n="${p#*:}"; [ "$n" = "$p" ] && n=1
-  model_of "$name" >/dev/null || { echo "FATAL: unknown head '$name' (sol|astra|gemini|gemini-flash|opus|sonnet|fable)" >&2; exit 2; }
+  model_of "$name" >/dev/null || { echo "FATAL: unknown head '$name' (known: $(python3 "$HEADS_PY" list | cut -f1 | tr '\n' ' '))" >&2; exit 2; }
   for i in $(seq 1 "$n"); do JOBS+=("$name-$i"); done
 done
 # gemini = Gemini 3.8 Flash high; gemini-flash is the same model.
@@ -98,6 +92,10 @@ run_head(){
       rc=$?
       if [ $rc -eq 0 ] && [ -s "$SCR/answer.md" ]; then cp "$SCR/answer.md" "$OUT"; else status=error; fi
       read -r p c r <<< "$(codex_tokens "$LOG")" ;;
+    openrouter|opencode)
+      read -r p c r cost <<< "$(python3 "$HEADS_PY" call "$name" "$RUN/brief.md" "$OUT" "$LOG" --timeout "$TIMEOUT")"
+      rc=$?
+      [ -s "$OUT" ] || status=error ;;
     agy)
       with_timeout "$TIMEOUT" agy -p "$(cat "$RUN/brief.md")" --model "$model" \
           --output-format json --print-timeout "${TIMEOUT}s" > "$LOG" 2>&1

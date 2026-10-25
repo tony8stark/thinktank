@@ -1,0 +1,16 @@
+{
+  "_doc": "Head registry. channel: codex | agy | opencode | openrouter | agent. effort '-' = none. web: the head can search and fetch pages (factcheck needs it). Override or add heads in ~/.config/thinktank/heads.json (same shape; a null entry removes a head).",
+  "heads": {
+    "sol":          {"channel": "codex", "model": "gpt-6.1-sol", "effort": "low", "family": "openai", "web": true},
+    "luna":         {"channel": "codex", "model": "gpt-6-luna", "effort": "medium", "family": "openai", "web": true},
+    "astra":        {"channel": "codex", "model": "gpt-6-astra", "effort": "low", "family": "openai", "web": true},
+    "gemini":       {"channel": "agy", "model": "gemini-3.8-flash-high", "effort": "-", "family": "google", "web": true},
+    "gemini-flash": {"channel": "agy", "model": "gemini-3.8-flash-high", "effort": "-", "family": "google", "web": true},
+    "opus":         {"channel": "agent", "model": "opus", "effort": "low", "family": "anthropic", "web": true},
+    "sonnet":       {"channel": "agent", "model": "sonnet", "effort": "low", "family": "anthropic", "web": true},
+    "fable":        {"channel": "agent", "model": "fable", "effort": "low", "family": "anthropic", "web": true},
+    "or-gpt":       {"channel": "openrouter", "model": "openai/gpt-6.1-sol", "effort": "low", "family": "openai", "web": true},
+    "or-gemini":    {"channel": "openrouter", "model": "google/gemini-3.8-flash", "effort": "-", "family": "google", "web": true},
+    "or-deepseek":  {"channel": "openrouter", "model": "deepseek/deepseek-v4-pro", "effort": "-", "family": "deepseek", "web": true}
+  }
+}
