@@ -1,11 +1,11 @@
 ---
 name: factcheck
-description: Fact-check a text claim by claim before it goes to GPT Pro or to publication. Several cheap web-enabled heads (GPT-6.1 Sol low via codex, Opus via the Agent tool) check every claim against primary sources, a script fetches every cited page and verifies each quote, the orchestrator adjudicates by evidence (not by vote), and the result is a corrected text plus a dossier for GPT Pro that asks for all findings in one pass. Use for travel articles (entry rules, prices, hours, safety), tax/legal/form content, and any text whose claims move people's money or legal standing. Not for opinion, code, translation or single facts you can check yourself in one search. Arguments: tier quick|standard|money, then the file or text.
+description: Fact-check a text claim by claim before publication. Several cheap web-enabled heads (GPT-6.1 Sol low via codex, Opus via the Agent tool) check every claim against primary sources, a script fetches every cited page and verifies each quote, the orchestrator adjudicates by evidence (not by vote), and the result is a corrected text with sources, plus an optional dossier for a final review by a stronger model (for example GPT Pro). Use for travel articles (entry rules, prices, hours, safety), tax/legal/form content, and any text whose claims move people's money or legal standing. Not for opinion, code, translation or single facts you can check yourself in one search. Arguments: tier quick|standard|money, then the file or text.
 ---
 
 # FactCheck
 
-Why this exists: GPT Pro is slow, and every round in which it finds a factual error and returns the text costs a long wait. This stage catches those errors first, cheaply and in parallel, and hands GPT Pro a dossier so it can converge in one round.
+Why this exists: a text with factual errors costs readers money, filings or a trip. This stage checks every claim cheaply and in parallel against primary sources and returns a corrected text. If the user also runs a final review with a stronger model (for example GPT Pro, which is slow), the dossier from step 6 lets that review converge in one round. That final review is optional.
 
 What the design rests on:
 - Repeats of strong heads beat panels of different ones; low effort plus repeats beats one high-effort run, except on whole-document review, where only the top effort level pays.
@@ -16,7 +16,7 @@ Plugin root: the directory two levels above this SKILL.md (`${CLAUDE_PLUGIN_ROOT
 
 ## 1. When to fire
 
-Fire when the user asks to fact-check, verify claims, or prepare text for GPT Pro review, or before you hand GPT Pro (or a publish step) any text with factual claims about tax, law, forms, deadlines, fees, prices, entry rules, safety, or history the site states as fact. Announce in one line: `FactCheck: <tier>, <n> claims, heads <spec> + <agent heads>`.
+Fire when the user asks to fact-check, verify claims, or prepare text for a final review, or before you publish (or hand a reviewer model) any text with factual claims about tax, law, forms, deadlines, fees, prices, entry rules, safety, or history the site states as fact. Announce in one line: `FactCheck: <tier>, <n> claims, heads <spec> + <agent heads>`.
 
 Do not fire for opinion or marketing copy, code, translation, or a single fact (just check it).
 
@@ -76,14 +76,14 @@ Write `$RUN/verdicts.json`, one entry per claim id (including N-claims):
 
 1. Apply only adjudicated changes, as minimal edits, and save `$RUN/revised.md`. Prefer adding scope ("for payments made in 2026", "for US passport holders") and an as-of date to paraphrasing a complex rule.
 2. If the rewrite adds any fact that is not in a verdict's `after` text, check it in a delta round: `$FC init $RUN2 $RUN/revised.md --from $RUN`, claims.json with only the new or changed claims, prep/run/collect/adjudicate as above, then `packet $RUN2 --parent $RUN`.
-3. `$FC packet $RUN --revised $RUN/revised.md` writes `$RUN/handoff.md`: scope, how it was produced, what GPT Pro should do, changes with evidence, unresolved items, the claim ledger and the revised text. It asks GPT Pro for all findings in one pass, keyed to claim ids, ending with a JSON list.
-4. money tier: `$FC rehearse $RUN` runs that exact dossier on Sol at ultra first. It is slow, so start it with `run_in_background` right after `packet` and show the user the adjudicated changes meanwhile. Its findings land in `$RUN/rehearsal-sol.ultra-1.findings.json` with quote statuses. Verify each like a single-head finding (both checks); expect two kinds: errors your own rewrite introduced (act on them) and completeness notes in GPT Pro's style (keep the ones that change what a reader of this text does). Apply what survives and re-run `packet`. Skip the rehearsal only if the user is in a hurry.
+3. Optional, only when the user plans a final review by a stronger model: `$FC packet $RUN --revised $RUN/revised.md` writes `$RUN/handoff.md`: scope, how it was produced, what GPT Pro should do, changes with evidence, unresolved items, the claim ledger and the revised text. It asks GPT Pro for all findings in one pass, keyed to claim ids, ending with a JSON list.
+4. money tier, only if you wrote the dossier: `$FC rehearse $RUN` runs that exact dossier on Sol at ultra first. It is slow, so start it with `run_in_background` right after `packet` and show the user the adjudicated changes meanwhile. Its findings land in `$RUN/rehearsal-sol.ultra-1.findings.json` with quote statuses. Verify each like a single-head finding (both checks); expect two kinds: errors your own rewrite introduced (act on them) and completeness notes in GPT Pro's style (keep the ones that change what a reader of this text does). Apply what survives and re-run `packet`. Skip the rehearsal only if the user is in a hurry.
 
 ## 7. Deliver
 
-Show the user: the table of changes (before, after, source), the UNRESOLVED items, per-head stats from `matrix.md`, and the path to `handoff.md`. Copy the dossier to the clipboard (`pbcopy < $RUN/handoff.md`) and say so. Describe the run from `out/*.meta.json` and `merged.json` (which heads ran and parsed), never from intent.
+Show the user: `revised.md`, the table of changes (before, after, source), the UNRESOLVED items and per-head stats from `matrix.md`. If you wrote the dossier, give its path and copy it to the clipboard (`pbcopy < $RUN/handoff.md`). Describe the run from `out/*.meta.json` and `merged.json` (which heads ran and parsed), never from intent.
 
-## 8. When GPT Pro answers
+## 8. When GPT Pro answers (optional)
 
 When the user brings back GPT Pro's reply, do the bookkeeping yourself (never ask the user to record anything):
 1. Save it verbatim to `$RUN/pro-round-<N>.md` and run `$FC pro $RUN --round <N> --reply $RUN/pro-round-<N>.md`. It counts GPT Pro's findings against our verdicts, writes the line to `~/.claude/thinktank/factcheck-ledger.jsonl`, and appends every finding on a claim we called SUPPORTED, or outside the ledger, to `~/.claude/thinktank/factcheck-misses.jsonl` (the regression set that tells us what the stage misses).
