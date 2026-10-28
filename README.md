@@ -60,6 +60,17 @@ If fewer than two heads return a usable answer, the run is labeled "degraded" an
 /plugin install thinktank@thinktank
 ```
 
+Then ask for it in plain words ("run a thinktank review of this diff", "fact-check this article") or call `/thinktank:thinktank` and `/thinktank:factcheck` directly.
+
+Update to the latest version:
+
+```
+/plugin marketplace update thinktank
+/plugin update thinktank@thinktank
+```
+
+and restart Claude Code. Changes are listed in [CHANGELOG.md](CHANGELOG.md).
+
 Optional reminder hook: copy `hooks/thinktank-check.sh` somewhere and register it as a `UserPromptSubmit` hook in `~/.claude/settings.json`.
 
 ## Requirements
@@ -74,9 +85,9 @@ Only Claude Code is required. The skills detect what else is installed and size 
 | + `OPENROUTER_API_KEY` in the environment | OpenRouter heads (`or-gpt`, `or-gemini`, `or-deepseek`): other model families without installing their CLIs; paid per call |
 | + [OpenCode](https://opencode.ai) CLI | any model you have set up in OpenCode, once you add a head for it (below) |
 
-Also `python3`; for factcheck, `pdftotext` (PDF quotes) and Google Chrome (headless fetches of JS pages).
+Also `python3` and `perl` (preinstalled on macOS and most Linux distributions). For factcheck, optionally `pdftotext` (PDF quotes; `brew install poppler` or `apt install poppler-utils`) and Chrome or Chromium for JS-heavy pages (found automatically; set `THINKTANK_CHROME` to a binary to override). Works on macOS and Linux.
 
-Check what this machine has: `python3 scripts/heads.py available` and `python3 scripts/heads.py list`.
+Detection means a CLI is on `PATH` or a key is in the environment; it does not check that you are signed in. Ask Claude "which thinktank heads are available?", or run `python3 scripts/heads.py list` from a clone of this repo.
 
 ## Adding or changing heads
 
@@ -94,6 +105,10 @@ Heads live in `scripts/heads.json`. Put your own in `~/.config/thinktank/heads.j
 
 `channel` is `codex`, `agy`, `opencode`, `openrouter` or `agent`; `model` is the id that channel expects (`provider/model`; for OpenCode take it from `opencode models`, for OpenRouter from openrouter.ai/models); `family` is used to keep panels mixed; `web: true` lets factcheck use the head. OpenCode heads run with every tool denied except `websearch` and `webfetch` (factcheck), through `OPENCODE_PERMISSION`.
 
+## What leaves your machine
+
+A brief or a text to check is sent to every head in the panel: to OpenAI through codex, to Google through agy, to Anthropic through the Agent tool, to OpenRouter and the model provider it routes to, or to whatever OpenCode is configured with. Do not run it on material you may not share with those providers. Runs, including briefs, answers and logs, stay on disk in `~/.local/share/thinktank/runs/` until you delete them. API keys are read from the environment and never written to logs.
+
 ## Layout
 
 - `skills/thinktank/` SKILL.md, brief template
@@ -105,4 +120,8 @@ Heads live in `scripts/heads.json`. Put your own in `~/.config/thinktank/heads.j
 
 Runs go to `~/.local/share/thinktank/runs/`, ledgers to `~/.claude/thinktank/` (override with `THINKTANK_LEDGER`, `FACTCHECK_LEDGER`).
 
-Tests: `uv run --with pytest pytest tests/` (no network, fake CLIs). `bash tests/test_runner.sh` calls the real codex.
+## Contributing and license
+
+Pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Tests: `uv run --with pytest pytest tests/` (no network, fake CLIs); CI runs them on Linux and macOS.
+
+MIT License, see [LICENSE](LICENSE).

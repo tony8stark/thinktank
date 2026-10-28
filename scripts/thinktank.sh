@@ -6,24 +6,36 @@
 # Writes out/<head>.md and out/<head>.meta.json; prints "THINKTANK DONE ok=N error=M"; exit 0 iff M=0.
 # thinktank.sh --available prints the channels this machine can run, one per line (agent is always there).
 set -u
-HEADS_PY="$(dirname "$0")/heads.py"
+HEADS_PY="$(cd "$(dirname "$0")" && pwd)/heads.py"
 [ "${1:-}" = "--available" ] && exec python3 "$HEADS_PY" available
+usage(){ echo 'usage: thinktank.sh <run-dir> <brief.md> [--heads SPEC] [--timeout SEC]' >&2; exit 2; }
+[ $# -ge 2 ] || usage
 RUN="$1"; BRIEF="$2"; shift 2
 HEADS="sol:3"; TIMEOUT=900
 while [ $# -gt 0 ]; do case "$1" in
-  --heads) HEADS="$2"; shift 2;; --timeout) TIMEOUT="$2"; shift 2;;
+  --heads) [ $# -ge 2 ] || usage; HEADS="$2"; shift 2;; --timeout) [ $# -ge 2 ] || usage; TIMEOUT="$2"; shift 2;;
   *) echo "unknown arg $1" >&2; exit 2;; esac; done
 
 model_of(){ python3 "$HEADS_PY" model "$1"; }
 
 # validate the spec before touching the filesystem, so a typo fails before anything is launched
-JOBS=()
+[[ "$TIMEOUT" =~ ^[1-9][0-9]*$ ]] || usage
+[[ "$HEADS" != *$'\n'* ]] || usage
+[ -n "$HEADS" ] && [[ "$HEADS" != ,* && "$HEADS" != *, && "$HEADS" != *,,* ]] || usage
+JOBS=(); SEEN=","
 IFS=, read -ra PARTS <<< "$HEADS"
+[ ${#PARTS[@]} -gt 0 ] || usage
 for p in "${PARTS[@]}"; do
   name="${p%%:*}"; n="${p#*:}"; [ "$n" = "$p" ] && n=1
+  [[ "$n" =~ ^[1-9][0-9]*$ ]] || { echo "invalid count '$n'" >&2; exit 2; }
+  case "$SEEN" in *",$name,"*) echo "duplicate head '$name'; use $name:2 for two copies" >&2; exit 2;; esac
+  SEEN="$SEEN$name,"
   model_of "$name" >/dev/null || { echo "FATAL: unknown head '$name' (known: $(python3 "$HEADS_PY" list | cut -f1 | tr '\n' ' '))" >&2; exit 2; }
-  for i in $(seq 1 "$n"); do JOBS+=("$name-$i"); done
+  read -r ch _ <<< "$(model_of "$name")"
+  case "$ch" in codex|agy|opencode|openrouter|agent) ;; *) echo "unknown channel '$ch'" >&2; exit 2;; esac
+  for ((i=1; i<=n; i++)); do JOBS+=("$name-$i"); done
 done
+[ ${#JOBS[@]} -gt 0 ] || usage
 # gemini = Gemini 3.8 Flash high; gemini-flash is the same model.
 # agy model ids can leave the catalogue without notice. Check the live catalogue before launching anything and
 # never fall back to another model: an answer filed under the wrong model is worse than a missing head. Exit 3 = a requested agy model is not offered right now.
@@ -38,16 +50,60 @@ for j in "${JOBS[@]}"; do
     exit 3; }
 done
 [ -s "$BRIEF" ] || { echo "FATAL: brief $BRIEF missing or empty" >&2; exit 2; }
+if [ -e "$RUN/brief.md" ]; then
+  python3 - "$RUN/brief.md" "$BRIEF" <<'PYBRIEF'
+import sys
+sys.exit(0 if open(sys.argv[1], "rb").read() == open(sys.argv[2], "rb").read() else 1)
+PYBRIEF
+  [ $? -eq 0 ] || { echo "run dir already holds a different brief; use a new run dir" >&2; exit 2; }
+fi
 mkdir -p "$RUN/out" "$RUN/log" "$RUN/tmp"; RUN="$(cd "$RUN" && pwd)"
 BRIEF="$(cd "$(dirname "$BRIEF")" && pwd)/$(basename "$BRIEF")"
 [ "$BRIEF" = "$RUN/brief.md" ] || cp "$BRIEF" "$RUN/brief.md"
 
-with_timeout(){ # <sec> cmd...: runs cmd in its own process group and kills the whole group on timeout (exit 142).
-  # codex is a node wrapper around a native binary: "alarm + exec" killed only the wrapper and left the binary running.
-  perl -e 'my $t = shift; my $pid = fork; die "fork: $!" unless defined $pid;
-    if (!$pid) { setpgrp(0, 0); exec @ARGV; exit 127 }
-    $SIG{ALRM} = sub { kill "TERM", -$pid; sleep 3; kill "KILL", -$pid; exit 142 };
-    alarm $t; waitpid $pid, 0; exit($? & 127 ? 128 + ($? & 127) : $? >> 8)' "$@"; }
+BRIEF_BYTES=$(python3 -c 'import os,sys; print(os.path.getsize(sys.argv[1]))' "$RUN/brief.md")
+AGY_READY=0; AGY_MESSAGE=""
+for j in "${JOBS[@]}"; do
+  read -r ch _ <<< "$(model_of "${j%-*}")"
+  [ "$ch" = "agy" ] || continue
+  AGY_MESSAGE=$(python3 "$HEADS_PY" agy-project thinktank "$HOME/.local/share/thinktank/agy-thinktank" 2>&1)
+  [ $? -ne 0 ] || AGY_READY=1
+  break
+done
+
+cleanup(){
+  trap '' INT TERM
+  local f pid; local groups=()
+  for f in "$RUN"/tmp/*/pgid*; do
+    [ -f "$f" ] || continue
+    read -r pid < "$f"
+    [[ "$pid" =~ ^[1-9][0-9]*$ ]] || continue
+    groups+=("$pid")
+  done
+  [ ${#groups[@]} -gt 0 ] || return 0
+  for pid in "${groups[@]}"; do kill -TERM -- "-$pid" 2>/dev/null || :; done
+  sleep 1
+  for pid in "${groups[@]}"; do kill -KILL -- "-$pid" 2>/dev/null || :; done
+}
+interrupted=0
+trap 'interrupted=1; exit 130' INT
+trap 'interrupted=1; exit 143' TERM
+trap '[ "$interrupted" -eq 0 ] || cleanup' EXIT
+
+with_timeout(){ # <sec> cmd...: record the group before allowing the child to launch.
+  perl -e 'use POSIX qw(setpgid); my $t = shift; pipe(my $r, my $w) or die "pipe: $!";
+    my $pid = fork; die "fork: $!" unless defined $pid;
+    if (!$pid) { close $w; setpgid(0, 0); <$r>; close $r; exec @ARGV; exit 127 }
+    close $r; setpgid($pid, $pid);
+    open(my $f, ">", $ENV{THINKTANK_PGID}) or die "pgid: $!"; print $f "$pid\n"; close $f;
+    print $w "go\n"; close $w;
+    $SIG{ALRM} = sub { my @groups = ($pid);
+      if (open(my $c, "<", $ENV{THINKTANK_PGID} . ".child")) {
+        my $child = <$c>; close $c; push @groups, $child if $child =~ /^[1-9][0-9]*\s*$/;
+      }
+      kill "TERM", map { -$_ } @groups; sleep 1; kill "KILL", map { -$_ } @groups; exit 142 };
+    alarm $t; waitpid $pid, 0; my $rc = $?; unlink $ENV{THINKTANK_PGID};
+    exit($rc & 127 ? 128 + ($rc & 127) : $rc >> 8)' "$@"; }
 
 write_meta(){ # head channel model status latency ptok ctok rtok cost
   python3 - "$RUN/out/$1.meta.json" "$@" <<'PY'
@@ -83,38 +139,65 @@ run_head(){
   local ch model eff; read -r ch model eff <<< "$(model_of "$name")"
   local OUT="$RUN/out/$head.md" LOG="$RUN/log/$head.log" SCR="$RUN/tmp/$head"
   [ "$ch" = "agent" ] && return 0                      # Claude heads are the Agent tool's job
-  [ -s "$OUT" ] && { echo "skip $head"; return 0; }
+  if [ -s "$OUT" ] && python3 - "$RUN/out/$head.meta.json" <<'PYDONE'
+import json, sys
+try:
+    with open(sys.argv[1]) as f: done = json.load(f).get("status") == "ok"
+except (OSError, ValueError, AttributeError): done = False
+sys.exit(0 if done else 1)
+PYDONE
+  then echo "skip $head"; return 0; fi
   rm -f "$OUT"; mkdir -p "$SCR"; local start; start=$(date +%s); local status=ok p="" c="" r="" cost="" rc
+  rm -f "$SCR"/pgid*
+  export THINKTANK_PGID="$SCR/pgid"
+  if { [ "$ch" = "agy" ] || [ "$ch" = "opencode" ]; } && [ "$BRIEF_BYTES" -gt 100000 ]; then
+    echo "brief too large for argv: $BRIEF_BYTES bytes" > "$LOG"; status=error
+  else
   case "$ch" in
     codex)
+      rm -f "$SCR/answer.md"
       ( cd "$SCR" && with_timeout "$TIMEOUT" codex exec --skip-git-repo-check -s read-only \
           -m "$model" -c model_reasoning_effort="\"$eff\"" -o "$SCR/answer.md" - < "$RUN/brief.md" > "$LOG" 2>&1 )
       rc=$?
       if [ $rc -eq 0 ] && [ -s "$SCR/answer.md" ]; then cp "$SCR/answer.md" "$OUT"; else status=error; fi
       read -r p c r <<< "$(codex_tokens "$LOG")" ;;
     openrouter|opencode)
-      read -r p c r cost <<< "$(python3 "$HEADS_PY" call "$name" "$RUN/brief.md" "$OUT" "$LOG" --timeout "$TIMEOUT")"
+      local tokens
+      tokens=$(with_timeout "$TIMEOUT" python3 "$HEADS_PY" call "$name" "$RUN/brief.md" "$OUT" "$LOG" --timeout "$TIMEOUT" --cwd "$SCR")
       rc=$?
-      [ -s "$OUT" ] || status=error ;;
+      read -r p c r cost <<< "$tokens"
+      if [ "$rc" -ne 0 ] || [ ! -s "$OUT" ]; then status=error; rm -f "$OUT"; fi ;;
     agy)
-      with_timeout "$TIMEOUT" agy -p "$(cat "$RUN/brief.md")" --model "$model" \
-          --output-format json --print-timeout "${TIMEOUT}s" > "$LOG" 2>&1
+      if [ "$AGY_READY" -ne 1 ]; then
+        echo "cannot ensure agy project thinktank: $AGY_MESSAGE" > "$LOG"; status=error
+      else
+      ( cd "$SCR" && with_timeout "$TIMEOUT" agy --project thinktank -p "$(cat "$RUN/brief.md")" --model "$model" \
+          --output-format json --print-timeout "${TIMEOUT}s" > "$LOG" 2>&1 )
       rc=$?
       read -r p c r <<< "$(python3 - "$LOG" "$OUT" <<'PY'
 import sys, json
-raw = open(sys.argv[1]).read(); ans = None; u = {}
-for line in raw.splitlines()[::-1]:
-    line = line.strip()
-    if line.startswith("{"):
-        try:
-            d = json.loads(line); ans = d.get("response") or d.get("result"); u = d.get("usage", {}); break
-        except Exception: pass
-if ans and "auto-denied" not in raw: open(sys.argv[2], "w").write(ans.strip() + "\n")
+raw = open(sys.argv[1]).read(); ans = None; u = {}; diagnostics = []
+for line in raw.splitlines():
+    try: d = json.loads(line)
+    except ValueError:
+        diagnostics.append(line); continue
+    if isinstance(d, dict):
+        response = d.get("response") or d.get("result")
+        if isinstance(response, str): ans = response; u = d.get("usage") or {}
+        diagnostics.append(json.dumps({k: v for k, v in d.items() if k not in ("response", "result")}))
+    else: diagnostics.append(line)
+failed = any(s in "\n".join(diagnostics) for s in ("auto-denied", "no output produced"))
+if ans and not failed: open(sys.argv[2], "w").write(ans.strip() + "\n")
+if not isinstance(u, dict): u = {}
 print(u.get("input_tokens", ""), u.get("output_tokens", ""), u.get("thinking_tokens", ""))
 PY
 )"
-      if [ $rc -ne 0 ] || [ ! -s "$OUT" ] || grep -q "auto-denied\|no output produced" "$LOG"; then status=error; rm -f "$OUT"; fi ;;
+      if [ $rc -ne 0 ] || [ ! -s "$OUT" ]; then status=error; rm -f "$OUT"; fi
+      fi ;;
+    *) echo "unknown channel '$ch'" > "$LOG"; status=error ;;
   esac
+  fi
+  rm -f "$SCR"/pgid*
   local lat=$(( $(date +%s) - start ))
   write_meta "$head" "$ch" "$model" "$status" "$lat" "$p" "$c" "$r" "$cost"
   echo "$status $head ${lat}s"

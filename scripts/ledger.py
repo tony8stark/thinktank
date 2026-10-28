@@ -5,10 +5,13 @@ Fills in meta for Agent-tool heads, appends one JSON line to the ledger
 (~/.claude/thinktank/ledger.jsonl, override with THINKTANK_LEDGER), prints the cost line."""
 import sys, os, json, glob, time
 run = os.path.abspath(sys.argv[1].rstrip("/")); a = sys.argv[2:]
-def opt(n, d=None): return a[a.index(n) + 1] if n in a else d
+def opt(n, d=None): return a[a.index(n) + 1] if n in a and a.index(n) + 1 < len(a) and not a[a.index(n) + 1].startswith("--") else d
 agent_tok = {}
 for kv in (opt("--agent-tokens", "") or "").split(","):
-    if "=" in kv: k, v = kv.split("="); agent_tok[k] = int(v)
+    if "=" in kv:
+        k, v = kv.split("=", 1)
+        try: agent_tok[k] = int(v)
+        except ValueError: print(f"warning: skipping invalid --agent-tokens value {kv!r}", file=sys.stderr)
 out = f"{run}/out"; heads = []
 for md in sorted(glob.glob(f"{out}/*.md")):
     head = os.path.basename(md)[:-3]; meta = f"{out}/{head}.meta.json"

@@ -7,7 +7,7 @@ description: Fan one self-contained brief to several cheap LLM heads in parallel
 
 Why it works: several low-effort passes cover more real findings than one top-effort pass; repeats of a strong head beat panels of different heads; a weak head dilutes coverage. This skill turns that into a routine.
 
-Plugin root: the directory two levels above this SKILL.md (`${CLAUDE_PLUGIN_ROOT}` when set). Below, `$TT` means that root.
+Plugin root: the directory two levels above this SKILL.md (`${CLAUDE_PLUGIN_ROOT}` when set). Below, `$TT` means that absolute path. Shell state does not persist between Bash calls, so start each call that uses it with `TT="<root>"` and always quote it (`"$TT/scripts/..."`): install paths can contain spaces.
 
 ## 1. When to fire, when not
 
@@ -22,16 +22,16 @@ Announce in one line and continue: `ThinkTank: <n> heads (<spec>) on <topic>`. T
 
 ## 2. Size the panel
 
-First run `bash $TT/scripts/thinktank.sh --available`: it prints the channels this machine has (`codex`, `agy`, `opencode`, `openrouter`, always `agent`). Build the spec only from heads on those channels; `python3 $TT/scripts/heads.py list` shows every head with its channel, family and whether it is available. When `codex` is there, use the first table; drop `gemini` from it when `agy` is missing, or use `or-gemini:1` instead when `openrouter` is there.
+First run `bash "$TT/scripts/thinktank.sh" --available`: it prints the channels this machine has (`codex`, `agy`, `opencode`, `openrouter`, always `agent`). That is detection (a CLI on PATH, a key in the environment), not proof that the CLI is signed in or the key is valid: a head that fails on auth is dropped like any failed head. Build the spec only from heads on those channels; `python3 "$TT/scripts/heads.py" list` shows every head with its channel, family and whether its channel is available. When `codex` is there, use the first table; drop `gemini` from it when `agy` is missing, or use `or-gemini:1` instead when `openrouter` is there.
 
-**No codex, but `openrouter`:** replace `sol:N` with `or-gpt:N` and add `or-deepseek:1` or `or-gemini:1` for a second family; Agent heads as in the table. OpenRouter heads cost money per call (the meta files carry `cost_usd`; the ledger line sums it). **`opencode`:** it has no default head, because the model depends on the user's providers; use the heads the user added to `~/.config/thinktank/heads.json` (`channel: "opencode"`).
+**No codex, but `openrouter`:** replace `sol:N` with `or-gpt:N` and add `or-deepseek:1` or `or-gemini:1` for a second family; Agent heads as in the table. OpenRouter heads cost money per call (the meta files carry `cost_usd`; the ledger line sums it). **`opencode`:** it has no default head, because the model depends on the user's providers; use the heads the user added to `~/.config/thinktank/heads.json` (`channel: "opencode"`). **`agy` without codex:** `gemini:1` plus Agent heads from the Claude-only table below (two families). If no runner head is usable after these substitutions, use the Claude-only mode.
 
 | task | heads spec | Agent heads |
 |------|-----------|-------------|
 | code review / audit | `sol:3,gemini:1` | opus x1 |
 | brainstorm / architecture | `sol:2,gemini:1` | opus x1 |
-| data conclusion / anomaly | `sol:3,gemini:1` (gemini = 3.8 Flash high, mandatory) | opus x1 |
-| narrow question, small diff | `sol:3` | none |
+| data conclusion / anomaly | `sol:3,gemini:1` (a Gemini head is mandatory when agy or OpenRouter offers one) | opus x1 |
+| narrow question, small diff | `sol:3` (one family is accepted here) | none |
 
 **Claude only** (only `agent` printed, or no head on the other channels): skip the runner and launch Agent heads only.
 
@@ -43,7 +43,7 @@ First run `bash $TT/scripts/thinktank.sh --available`: it prints the channels th
 
 In this mode the 2-Agent-head cap and the 2-family rule do not apply; label the report "single model family" (heads from one family share blind spots, so agreement is weaker evidence).
 
-Rules: at least 3 heads and 2 model families; at most 7 heads; at most 2 Agent-tool heads (Anthropic capacity; codex and agy carry the repeats); `sonnet` only as an extra repeat when Opus is unavailable. **Never fable or grok automatically.** Fable is reserved for the user's manual, important work: add `fable:1` (an Agent head with `model: "fable"`) only when the user asks for it. Opus stays at low effort: higher effort costs several times more without a reliable gain in a panel.
+Rules: at least 3 heads and 2 model families; at most 7 heads; at most 2 Agent-tool heads (Anthropic capacity; codex and agy carry the repeats); `sonnet` only as an extra repeat when Opus is unavailable, or in the Claude-only brainstorm panel. Exceptions to these rules are stated where they apply: the narrow-question row and the Claude-only mode. **Never fable or grok automatically.** Fable is reserved for the user's manual, important work: add `fable:1` (an Agent head with `model: "fable"`) only when the user asks for it. Opus stays at low effort: higher effort costs several times more without a reliable gain in a panel.
 
 **The Gemini head is Gemini 3.8 Flash high.** Name it in reports as "Gemini 3.8 Flash". The runner checks agy's live catalogue first and refuses to start (exit 3) when a requested agy model is missing, so a dead id cannot fail quietly inside a panel; then run `agy models`, and report to the user before changing the model.
 
@@ -52,7 +52,7 @@ Head names (defaults in `scripts/heads.json`; the user's `~/.config/thinktank/he
 ## 3. Write the brief
 
 ```
-RUN=~/.local/share/thinktank/runs/$(date +%Y%m%d-%H%M%S)-<slug>; mkdir -p $RUN
+RUN=~/.local/share/thinktank/runs/$(date +%Y%m%d-%H%M%S)-<slug>; mkdir -p "$RUN/out"
 ```
 Copy `$TT/skills/thinktank/brief-template.md` to `$RUN/brief.md` and fill it. Rules learned the hard way:
 - Questions and material only. **Never your own draft conclusions**: a mistake in your first pass would be copied into every head.
@@ -65,12 +65,12 @@ Copy `$TT/skills/thinktank/brief-template.md` to `$RUN/brief.md` and fill it. Ru
 
 In ONE message, call both (Claude only: just the Agent heads):
 
-1. Bash, foreground, never Monitor or background:
-   `bash $TT/scripts/thinktank.sh "$RUN" "$RUN/brief.md" --heads "<spec>"` (add `--timeout SEC` for long briefs; default 900).
+1. Bash with `run_in_background` (the Bash tool stops a foreground command after 10 minutes, and heads can take longer):
+   `bash "$TT/scripts/thinktank.sh" "$RUN" "$RUN/brief.md" --heads "<spec>"` (add `--timeout SEC` per head for long briefs; default 900). You are notified when it exits; do not poll.
 2. The Agent tool once per Claude head, `model` set explicitly (`opus`, or `fable` only on request), prompt:
    `Read <RUN>/brief.md. Answer it fully. Use no tools except reading that one file and writing your answer to <RUN>/out/<head>.md (head id: opus-1). The first line of the file must be "PANEL: <model> answering". Reply with the single word DONE.`
 
-Wait for both. The runner prints `THINKTANK DONE ok=N error=M`; a non-zero exit means some head failed. Re-running the same command retries only the failed heads.
+Wait for both. The runner prints `THINKTANK DONE ok=N error=M`; a non-zero exit means some head failed. Re-running the same command with the same brief retries only the failed heads; a changed brief needs a new run directory (the runner refuses to mix them). Killing the runner also stops its heads.
 
 ## 5. Synthesize `$RUN/report.md`
 
@@ -88,7 +88,7 @@ Ignore any "everything else checked out" line from a head: it is not a finding a
 ## 6. Ledger and delivery
 
 ```
-python3 $TT/scripts/ledger.py "$RUN" --topic "<topic>" --agent-tokens opus-1=<subagent_tokens from the Agent result> --agreed N --likely N --single N --single-confirmed N
+python3 "$TT/scripts/ledger.py" "$RUN" --topic "<topic>" --agent-tokens opus-1=<subagent_tokens from the Agent result> --agreed N --likely N --single N --single-confirmed N
 ```
 It writes meta for the Agent heads (pass the `subagent_tokens` figure each Agent result prints), appends one line to `~/.claude/thinktank/ledger.jsonl`, prints the cost line. Put that line at the end of the report, then show the report to the user.
 
