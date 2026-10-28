@@ -199,6 +199,7 @@ def test_extract_merge_source_order_and_per_chunk_timeout(tmp_path, monkeypatch,
         return 0
 
     monkeypatch.setattr(fc, "run_codex", fake)
+    monkeypatch.setattr(fc.shutil, "which", lambda n: "/bin/" + n)  # extract checks that codex is installed
     fc.cmd_extract([str(run), "--timeout", "42"])
     items = json.loads((run / "extract/sol.json").read_text())
     assert [c["claim"] for c in items] == [str(i) + s for i in range(1, 9) for s in ("a", "b")]
@@ -231,6 +232,7 @@ def test_extract_recovers_all_rollout_messages_from_latest_attempt(tmp_path, mon
         return 0
 
     monkeypatch.setattr(fc, "run_codex", fake)
+    monkeypatch.setattr(fc.shutil, "which", lambda n: "/bin/" + n)  # extract checks that codex is installed
     fc.cmd_extract([str(run)])
     assert len(calls) == 2
     assert calls == [fc.extract_timeout((run / "extract/brief.md").read_text())] * 2
@@ -251,6 +253,7 @@ def test_extract_one_chunk_failure_never_writes_partial_list(tmp_path, monkeypat
         return 0
 
     monkeypatch.setattr(fc, "run_codex", fake)
+    monkeypatch.setattr(fc.shutil, "which", lambda n: "/bin/" + n)  # extract checks that codex is installed
     try: fc.cmd_extract([str(run)]); raise AssertionError("no exit")
     except SystemExit as e: assert e.code == 1
     assert calls.count("2") == 2
@@ -269,6 +272,7 @@ def test_extract_default_timeout_is_computed_per_chunk(tmp_path, monkeypatch):
         return 0
 
     monkeypatch.setattr(fc, "run_codex", fake)
+    monkeypatch.setattr(fc.shutil, "which", lambda n: "/bin/" + n)  # extract checks that codex is installed
     fc.cmd_extract([str(run)])
     assert len(calls) == 2 and all(t == fc.extract_timeout(b) for b, t in calls)
     assert sorted(t for _, t in calls)[0] == 600
