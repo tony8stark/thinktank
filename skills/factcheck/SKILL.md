@@ -90,7 +90,7 @@ Show the user: `revised.md`, the table of changes (before, after, source), the U
 ## 8. When GPT Pro answers (optional)
 
 When the user brings back GPT Pro's reply, do the bookkeeping yourself (never ask the user to record anything):
-1. Save it verbatim to `$RUN/pro-round-<N>.md` and run `$FC pro $RUN --round <N> --reply $RUN/pro-round-<N>.md`. It counts GPT Pro's findings against our verdicts, writes the line to `~/.claude/thinktank/factcheck-ledger.jsonl`, and appends every finding on a claim we called SUPPORTED, or outside the ledger, to `~/.claude/thinktank/factcheck-misses.jsonl` (the regression set that tells us what the stage misses).
+1. Save it verbatim to `$RUN/pro-round-<N>.md` and run `$FC pro $RUN --round <N> --reply $RUN/pro-round-<N>.md`. It counts GPT Pro's findings against our verdicts, writes the line to `~/.claude/thinktank/factcheck-ledger.jsonl` (under `$CLAUDE_CONFIG_DIR` when that is set), and appends every finding on a claim we called SUPPORTED, or outside the ledger, to `~/.claude/thinktank/factcheck-misses.jsonl` (the regression set that tells us what the stage misses).
 2. GPT Pro is fallible too: adjudicate its findings with the same two checks before editing.
 3. Apply, delta-check the changes, update `verdicts.json`, and `packet` again (with `--revised`) for round 2 with a disposition per GPT Pro finding (fixed, rejected with the quote that shows the text is right, partial).
 

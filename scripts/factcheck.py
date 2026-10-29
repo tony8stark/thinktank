@@ -27,8 +27,9 @@ from concurrent.futures import ThreadPoolExecutor
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.join(os.path.dirname(HERE), "skills", "factcheck")
 HOME = os.path.expanduser("~")
-AGY_DIR = os.path.join(HOME, ".claude", "thinktank", "factcheck-agy")
-LEDGER = os.environ.get("FACTCHECK_LEDGER") or os.path.join(HOME, ".claude", "thinktank", "factcheck-ledger.jsonl")
+STATE = os.path.join(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(HOME, ".claude"), "thinktank")
+AGY_DIR = os.path.join(STATE, "factcheck-agy")
+LEDGER = os.environ.get("FACTCHECK_LEDGER") or os.path.join(STATE, "factcheck-ledger.jsonl")
 sys.path.insert(0, HERE)
 import heads as headreg  # the shared head registry (heads.json) and the openrouter/opencode channels
 try:

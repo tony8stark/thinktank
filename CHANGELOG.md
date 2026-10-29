@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1 (2026-10-29)
+
+- Ledgers and the FactCheck agy folder follow `CLAUDE_CONFIG_DIR` when Claude Code runs with a separate config directory (default unchanged: `~/.claude/thinktank/`; `THINKTANK_LEDGER` and `FACTCHECK_LEDGER` still win).
+- Plugin icon and a marketplace description.
+
 ## 1.2.0 (2026-10-29)
 
 - Local models: a `local` channel for Ollama (native API, context window set per request) and any OpenAI-compatible server (LM Studio and LM Studio Bionic, llama.cpp, vLLM, Jan). A head fails instead of answering from a silently truncated brief, requests to one server queue (timeouts start at admission), http stays on loopback unless a LAN IP is allowed per head. ThinkTank only; never added to a panel automatically.

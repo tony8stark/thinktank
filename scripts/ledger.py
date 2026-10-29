@@ -2,7 +2,7 @@
 """ledger.py <run-dir> --topic T [--agreed N --likely N --single N --single-confirmed N]
 --agent-tokens head=N[,head=N]  total tokens reported by the Agent tool per Claude head.
 Fills in meta for Agent-tool heads, appends one JSON line to the ledger
-(~/.claude/thinktank/ledger.jsonl, override with THINKTANK_LEDGER), prints the cost line."""
+(~/.claude/thinktank/ledger.jsonl, or $CLAUDE_CONFIG_DIR/thinktank/; override with THINKTANK_LEDGER), prints the cost line."""
 import sys, os, json, glob, time
 run = os.path.abspath(sys.argv[1].rstrip("/")); a = sys.argv[2:]
 def opt(n, d=None): return a[a.index(n) + 1] if n in a and a.index(n) + 1 < len(a) and not a[a.index(n) + 1].startswith("--") else d
@@ -37,7 +37,8 @@ line = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "run": run, "topic": opt("--to
         "heads": [h["head"] for h in heads], "tokens": tok,
         "agreed": int(opt("--agreed", 0)), "likely": int(opt("--likely", 0)),
         "single": int(opt("--single", 0)), "single_confirmed": int(opt("--single-confirmed", 0))}
-path = os.environ.get("THINKTANK_LEDGER") or os.path.expanduser("~/.claude/thinktank/ledger.jsonl")
+claude_dir = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
+path = os.environ.get("THINKTANK_LEDGER") or os.path.join(claude_dir, "thinktank", "ledger.jsonl")
 os.makedirs(os.path.dirname(path), exist_ok=True)
 with open(path, "a") as f: f.write(json.dumps(line, ensure_ascii=False) + "\n")
 parts = []

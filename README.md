@@ -150,7 +150,7 @@ A brief or a text to check is sent to every head in the panel: to OpenAI through
 - `scripts/factcheck.py` (setup, init, extract, prep, run, collect, packet, rehearse, pro; see its docstring). `factcheck.py setup` creates a restricted agy project `factcheck` (read_url + search_web only).
 - `hooks/thinktank-check.sh` UserPromptSubmit reminder.
 
-Runs go to `~/.local/share/thinktank/runs/`, ledgers to `~/.claude/thinktank/` (override with `THINKTANK_LEDGER`, `FACTCHECK_LEDGER`).
+Runs go to `~/.local/share/thinktank/runs/`, ledgers to `~/.claude/thinktank/` (or `$CLAUDE_CONFIG_DIR/thinktank/` when you run Claude Code with a separate config directory; override with `THINKTANK_LEDGER`, `FACTCHECK_LEDGER`).
 
 ## Contributing and license
 

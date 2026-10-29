@@ -1,6 +1,7 @@
 {
   "name": "thinktank",
   "owner": { "name": "tony8stark" },
+  "metadata": { "description": "ThinkTank: multi-model panel review and claim-by-claim fact-checking for Claude Code." },
   "plugins": [
     { "name": "thinktank", "source": "./", "description": "Multi-model panel review and claim-by-claim fact-checking." }
   ]
