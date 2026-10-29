@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1 (2026-10-29)
+
+- Security: OpenCode 2.x ignores `OPENCODE_PERMISSION`, so on 2.x an OpenCode head ran with OpenCode's default tools (file writes and shell commands in its scratch directory) instead of none. OpenCode heads now detect the version: 1.x keeps `OPENCODE_PERMISSION`; 2.x gets deny-all permission rules (plus `webfetch` and `websearch` for factcheck) through `OPENCODE_CONFIG_CONTENT` on a private `--standalone` server, because the shared background service does not read per-run config. Any other version is refused. Verified live on OpenCode 2.1.4. Update if you added an OpenCode head.
+
 ## 1.1.0 (2026-10-28)
 
 - MIT license, contribution guide, this changelog.

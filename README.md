@@ -83,7 +83,7 @@ Only Claude Code is required. The skills detect what else is installed and size 
 | + [codex CLI](https://github.com/openai/codex), signed in | codex heads (`gpt-6.1-sol`, low effort) carry the repeats, Opus adds a second family; recommended |
 | + `agy` (Antigravity CLI) | adds a Gemini head |
 | + `OPENROUTER_API_KEY` in the environment | OpenRouter heads (`or-gpt`, `or-gemini`, `or-deepseek`): other model families without installing their CLIs; paid per call |
-| + [OpenCode](https://opencode.ai) CLI | any model you have set up in OpenCode, once you add a head for it (below) |
+| + [OpenCode](https://opencode.ai) CLI, 1.x or 2.x | any model you have set up in OpenCode, once you add a head for it (below) |
 
 Also `python3` and `perl` (preinstalled on macOS and most Linux distributions). For factcheck, optionally `pdftotext` (PDF quotes; `brew install poppler` or `apt install poppler-utils`) and Chrome or Chromium for JS-heavy pages (found automatically; set `THINKTANK_CHROME` to a binary to override). Works on macOS and Linux.
 
@@ -103,7 +103,7 @@ Heads live in `scripts/heads.json`. Put your own in `~/.config/thinktank/heads.j
 }
 ```
 
-`channel` is `codex`, `agy`, `opencode`, `openrouter` or `agent`; `model` is the id that channel expects (`provider/model`; for OpenCode take it from `opencode models`, for OpenRouter from openrouter.ai/models); `family` is used to keep panels mixed; `web: true` lets factcheck use the head. OpenCode heads run with every tool denied except `websearch` and `webfetch` (factcheck), through `OPENCODE_PERMISSION`.
+`channel` is `codex`, `agy`, `opencode`, `openrouter` or `agent`; `model` is the id that channel expects (`provider/model`; for OpenCode take it from `opencode models`, for OpenRouter from openrouter.ai/models); `family` is used to keep panels mixed; `web: true` lets factcheck use the head. OpenCode heads run with every tool denied except `websearch` and `webfetch` (factcheck): on OpenCode 1.x through `OPENCODE_PERMISSION`, on 2.x (which ignores that variable) through permission rules in `OPENCODE_CONFIG_CONTENT` on a private `--standalone` server. Other versions are refused rather than run unrestricted.
 
 ## What leaves your machine
 

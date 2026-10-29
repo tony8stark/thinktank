@@ -177,7 +177,7 @@ def test_group_kills_ignoring_grandchild(tmp_path, env):
 def test_runner_term_kills_child(tmp_path, env, sig, channel):
     pidfile = tmp_path / 'pid'
     env['PIDFILE'] = str(pidfile)
-    env['PATH'] = clean_path(tmp_path, fake_bin(tmp_path, channel, 'echo $$ > "$PIDFILE"; trap "" TERM; exec sleep 60'))
+    env['PATH'] = clean_path(tmp_path, fake_bin(tmp_path, channel, '[ "$1" = --version ] && { echo "opencode v2.1.4"; exit 0; }; echo $$ > "$PIDFILE"; trap "" TERM; exec sleep 60'))
     (tmp_path / 'heads.json').write_text(json.dumps({'heads': {'sleeper': {'channel':channel, 'model':'m'}}}))
     brief = tmp_path / 'input.md'; brief.write_text('brief')
     p = subprocess.Popen(['bash', RUNNER, str(tmp_path / 'run'), str(brief), '--heads', 'sleeper:1'], env=env,
@@ -193,7 +193,7 @@ def test_runner_term_kills_child(tmp_path, env, sig, channel):
 
 
 def test_opencode_cwd_and_error(tmp_path, env, monkeypatch):
-    env['PATH'] = clean_path(tmp_path, fake_bin(tmp_path, 'opencode', 'pwd; exit "${FAIL:-0}"'))
+    env['PATH'] = clean_path(tmp_path, fake_bin(tmp_path, 'opencode', '[ "$1" = --version ] && { echo "1.19.5"; exit 0; }; pwd; exit "${FAIL:-0}"'))
     monkeypatch.setenv('PATH', env['PATH']); m = load(env)
     out = tmp_path / 'answer'
     with open(tmp_path / 'log', 'w') as log:

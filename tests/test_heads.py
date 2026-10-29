@@ -1,6 +1,7 @@
 """heads.py: registry merge, channel detection, the openrouter and opencode channels, and thinktank.sh wiring.
 No network and no real CLIs: openrouter talks to a local HTTP server, opencode and codex are fake scripts on PATH."""
 import json, os, subprocess, sys, threading, http.server, importlib.util
+import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(ROOT, "scripts")
@@ -91,20 +92,59 @@ def test_openrouter_call_sends_effort_web_and_key(tmp_path):
         srv.shutdown()
 
 
-def test_opencode_call_denies_tools_and_times_out(tmp_path):
-    # the fake echoes the permission env it was given, so the test sees exactly what opencode would
-    d = fake_bin(tmp_path, "opencode", 'if [ "$4" = "SLEEP" ]; then sleep 30; fi; echo "model=$3 perm=$OPENCODE_PERMISSION"')
-    os.environ["PATH"] = d + ":" + os.environ["PATH"]
+def fake_opencode(tmp_path, version):
+    """A fake opencode that prints VERSION for --version and otherwise echoes its argv and permission env as JSON."""
+    return fake_bin(tmp_path, "opencode", f"""[ "$1" = --version ] && {{ echo "{version}"; exit 0; }}
+for a in "$@"; do [ "$a" = SLEEP ] && sleep 30; done
+exec {sys.executable} -c 'import json,os,sys; print(json.dumps({{"argv": sys.argv[1:], "perm": os.environ.get("OPENCODE_PERMISSION"),
+  "content": os.environ.get("OPENCODE_CONFIG_CONTENT"), "noproject": os.environ.get("OPENCODE_DISABLE_PROJECT_CONFIG")}}))' "$@" """)
+
+
+def opencode_answer(m, tmp_path, web, prompt="hi", timeout=10):
+    out, log = tmp_path / "a.md", tmp_path / "a.log"
+    if out.exists(): out.unlink()
+    with open(log, "w") as lf:
+        r = m.call_opencode({"model": "ollama/gemma"}, prompt, str(out), lf, timeout, web=web, cwd=str(tmp_path))
+    return r[0], (json.loads(out.read_text()) if out.exists() else None), log.read_text()
+
+
+def test_opencode_v1_denies_tools_through_opencode_permission(tmp_path, monkeypatch):
+    monkeypatch.setenv("PATH", fake_opencode(tmp_path, "1.19.5") + ":" + os.environ["PATH"])
     m = load({"THINKTANK_HEADS": str(tmp_path / "none.json")})
-    out = tmp_path / "a.md"
-    with open(tmp_path / "a.log", "w") as lf:
-        r = m.call_opencode({"model": "anthropic/claude"}, "hi", str(out), lf, 10, web=True, cwd=str(tmp_path))
-    assert r[0] == "ok"
-    text = out.read_text()
-    assert "model=anthropic/claude" in text and '"*": "deny"' in text and '"webfetch": "allow"' in text
-    with open(tmp_path / "b.log", "w") as lf:
-        r = m.call_opencode({"model": "m"}, "SLEEP", str(tmp_path / "b.md"), lf, 1, cwd=str(tmp_path))
-    assert r[0] == "error" and "TIMEOUT" in (tmp_path / "b.log").read_text()
+    status, seen, _ = opencode_answer(m, tmp_path, web=True)
+    assert status == "ok" and seen["argv"] == ["run", "--model", "ollama/gemma", "hi"]
+    assert json.loads(seen["perm"]) == {"*": "deny", "webfetch": "allow", "websearch": "allow"}
+    status, seen, _ = opencode_answer(m, tmp_path, web=False)
+    assert json.loads(seen["perm"]) == {"*": "deny"}
+
+
+def test_opencode_v2_denies_tools_through_config_on_a_private_server(tmp_path, monkeypatch):
+    # live check 2026-10-29, OpenCode v2.1.4: OPENCODE_PERMISSION was ignored and the head wrote files and ran shell;
+    # these rules on a --standalone server removed every tool even when the user's global config allowed all
+    monkeypatch.setenv("PATH", fake_opencode(tmp_path, "opencode v2.1.4") + ":" + os.environ["PATH"])
+    m = load({"THINKTANK_HEADS": str(tmp_path / "none.json")})
+    status, seen, _ = opencode_answer(m, tmp_path, web=False)
+    assert status == "ok" and seen["argv"] == ["run", "--standalone", "--model", "ollama/gemma", "hi"]
+    assert json.loads(seen["content"]) == {"permissions": [{"action": "*", "resource": "*", "effect": "deny"}]}
+    assert seen["noproject"] == "1"
+    status, seen, _ = opencode_answer(m, tmp_path, web=True)
+    assert [r["action"] for r in json.loads(seen["content"])["permissions"]] == ["*", "webfetch", "websearch"]
+    assert [r["effect"] for r in json.loads(seen["content"])["permissions"]] == ["deny", "allow", "allow"]
+
+
+@pytest.mark.parametrize("version", ["opencode v3.0.0", "dev build", ""])
+def test_opencode_unknown_version_is_refused(tmp_path, monkeypatch, version):
+    monkeypatch.setenv("PATH", fake_opencode(tmp_path, version) + ":" + os.environ["PATH"])
+    m = load({"THINKTANK_HEADS": str(tmp_path / "none.json")})
+    status, seen, log = opencode_answer(m, tmp_path, web=False)
+    assert status == "error" and seen is None and "unknown OpenCode version" in log
+
+
+def test_opencode_call_times_out(tmp_path, monkeypatch):
+    monkeypatch.setenv("PATH", fake_opencode(tmp_path, "opencode v2.1.4") + ":" + os.environ["PATH"])
+    m = load({"THINKTANK_HEADS": str(tmp_path / "none.json")})
+    status, seen, log = opencode_answer(m, tmp_path, web=False, prompt="SLEEP", timeout=1)
+    assert status == "error" and seen is None and "TIMEOUT" in log
 
 
 def test_runner_mixes_codex_and_openrouter_heads(tmp_path):

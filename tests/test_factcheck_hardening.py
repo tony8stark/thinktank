@@ -402,7 +402,9 @@ def test_opencode_success_and_failed_meta_retry(fc, tmp_path):
     run, hs = run_dir(tmp_path, fc, "oc")
     (run / "out/oc-1.md").write_text("partial")
     fc.jdump({"status": "error"}, run / "out/oc-1.meta.json")
-    fake(tmp_path, "opencode", "import os,sys\nprint(os.getcwd())\nassert sys.argv[1:4] == ['run','--model','provider/model']")
+    fake(tmp_path, "opencode", "import os,sys\nif sys.argv[1:] == ['--version']: print('opencode v2.1.4'); sys.exit()\n"
+         "print(os.getcwd())\nassert sys.argv[1:5] == ['run','--standalone','--model','provider/model']\n"
+         "assert 'websearch' in os.environ['OPENCODE_CONFIG_CONTENT']")
     job = dict(hs[0], job="oc-1")
     assert fc.run_head(str(run), job, 2).startswith("ok")
     assert (run / "out/oc-1.md").read_text().strip() == str(run / "tmp/oc-1")

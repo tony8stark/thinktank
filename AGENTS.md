@@ -14,7 +14,7 @@ A Claude Code plugin with two skills, `thinktank` and `factcheck` (`skills/*/SKI
 
 ## Rules
 - Python standard library only; no new dependencies.
-- Heads get tools only through their channel's permission mechanism (agy projects, OPENCODE_PERMISSION, codex read-only sandbox), never only through prompt wording.
+- Heads get tools only through their channel's permission mechanism (agy projects, OpenCode 1.x OPENCODE_PERMISSION or 2.x permission rules in OPENCODE_CONFIG_CONTENT with --standalone, codex read-only sandbox), never only through prompt wording.
 - Never write API keys, personal paths or provider responses beyond id/model/usage to logs.
 - Run `uv run --with pytest pytest -q tests` before committing; CI runs it on Linux and macOS.
 - Behavior change: update README.md and the affected SKILL.md in the same commit.

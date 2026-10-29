@@ -149,12 +149,40 @@ def call_openrouter(h, prompt, out, logf, timeout, web=False, effort=None):
     return "ok", u.get("prompt_tokens"), u.get("completion_tokens"), rtok, u.get("cost")
 
 
+def opencode_major():
+    """Major version of the opencode CLI on PATH, or None when it cannot be read."""
+    try:
+        r = subprocess.run(["opencode", "--version"], stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired): return None
+    m = re.search(r"(\d+)\.\d+\.\d+", r.stdout)  # "1.19.5" (v1) or "opencode v2.1.4" (v2)
+    return int(m.group(1)) if r.returncode == 0 and m else None
+
+
+def opencode_command(model, prompt, web):
+    """(argv, extra env) that deny every tool except web search and fetch (when web), or None for an unknown version.
+    v1 reads OPENCODE_PERMISSION. v2 ignores it: it takes ordered rules (last match wins) from OPENCODE_CONFIG_CONTENT,
+    and only a --standalone server sees them; the shared background service keeps its own config."""
+    tools = ("webfetch", "websearch") if web else ()
+    major = opencode_major()
+    if major == 1:
+        perm = {"*": "deny", **{t: "allow" for t in tools}}
+        return ["opencode", "run", "--model", model, prompt], {"OPENCODE_PERMISSION": json.dumps(perm)}
+    if major == 2:
+        rules = [{"action": "*", "resource": "*", "effect": "deny"}]
+        rules += [{"action": t, "resource": "*", "effect": "allow"} for t in tools]
+        return (["opencode", "run", "--standalone", "--model", model, prompt],
+                {"OPENCODE_CONFIG_CONTENT": json.dumps({"permissions": rules}), "OPENCODE_DISABLE_PROJECT_CONFIG": "1"})
+    return None
+
+
 def call_opencode(h, prompt, out, logf, timeout, web=False, effort=None, cwd=None):
     """`opencode run` with every tool denied except web search and fetch (when web). Returns like call_openrouter."""
-    perm = {"*": "deny"}
-    if web: perm.update({"webfetch": "allow", "websearch": "allow"})
-    env = dict(os.environ, OPENCODE_PERMISSION=json.dumps(perm))
-    cmd = ["opencode", "run", "--model", h["model"], prompt]
+    command = opencode_command(h["model"], prompt, web)
+    if command is None:
+        logf.write("refusing to run: unknown OpenCode version, so its tools cannot be restricted (supported: 1.x, 2.x)\n")
+        return "error", None, None, None, None
+    cmd, extra = command
+    env = dict(os.environ, **extra)
     with tempfile.TemporaryDirectory(prefix="thinktank-opencode-") as scratch, tempfile.TemporaryFile(mode="w+") as output:
         rc = run_in_group(cmd, timeout, stdin=subprocess.DEVNULL, stdout=output, stderr=logf,
                           cwd=cwd or scratch, env=env, text=True)
