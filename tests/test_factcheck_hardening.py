@@ -107,9 +107,9 @@ def test_agy_timeout_kills_descendant(fc, tmp_path, monkeypatch):
     late = tmp_path / "late"
     fake(tmp_path, "agy", "import subprocess,time\nsubprocess.Popen([" + repr(sys.executable) + ", '-c', "
          + repr("import time;time.sleep(1);open(" + repr(str(late)) + ",'w').write('late')") + "])\ntime.sleep(60)")
-    seen = []; original = fc.headreg.run_in_group
-    def group(cmd, timeout, **kw): seen.append(timeout); return original(cmd, .2, **kw)
-    monkeypatch.setattr(fc.headreg, "run_in_group", group)
+    seen = []; original = fc.headreg.run_agy
+    def group(cmd, timeout, logf, cwd, **kw): seen.append(timeout); return original(cmd, .2, logf, cwd, **kw)
+    monkeypatch.setattr(fc.headreg, "run_agy", group)
     assert fc.run_head(str(run), dict(hs[0], job="gemini-1"), 1).startswith("error")
     time.sleep(1.1)
     assert seen and not late.exists()
@@ -399,6 +399,7 @@ def test_malformed_agy_response(fc, tmp_path, response):
 
 def test_opencode_success_and_failed_meta_retry(fc, tmp_path):
     fc.HEADS["oc"] = ("opencode", "provider/model", "-"); fc.WEB.add("oc")
+    fc.REGISTRY["oc"] = dict(channel="opencode", model="provider/model")
     run, hs = run_dir(tmp_path, fc, "oc")
     (run / "out/oc-1.md").write_text("partial")
     fc.jdump({"status": "error"}, run / "out/oc-1.meta.json")
@@ -507,7 +508,7 @@ def test_rehearse_valid_empty_findings(fc, tmp_path):
 
 
 def test_help_lists_every_runner_channel(fc):
-    assert "launch every non-agent head (codex, agy, opencode, openrouter)" in fc.__doc__
+    assert "launch every non-agent head (codex, agy, opencode, openrouter, local, command)" in fc.__doc__
 
 
 def test_cached_unsafe_redirect_is_rejected(fc, tmp_path):
@@ -548,3 +549,52 @@ def test_original_dns_resolution_uses_all_addresses(fc, monkeypatch):
 
 def test_exact_prefix_of_different_amount_cannot_match(fc):
     assert fc.match_quote("The official fee is $600", fc.mnorm("The official fee is $6000 today"))[0] < .6
+
+
+def test_command_factcheck_run(fc, tmp_path, capsys):
+    path = fake(tmp_path, 'custom', "import sys\na=sys.argv\nassert a[1:4]==['head','--protocol','1']\nassert a[a.index('--mode')+1]=='factcheck'\nopen(a[a.index('--out')+1],'w').write(sys.stdin.read())\nprint('20 4 - -')")
+    fc.REGISTRY['cmd'] = dict(channel='command', model='m', command=[str(path)], web=True)
+    fc.HEADS['cmd'] = ('command', 'm', '-'); fc.WEB.add('cmd')
+    run, hs = run_dir(tmp_path, fc, 'cmd')
+    fc.cmd_prep([str(run), '--heads', 'cmd'])
+    assert 'Copy each quote verbatim' in (run / 'briefs/cmd-1.md').read_text()
+    with pytest.raises(SystemExit) as exc: fc.cmd_run([str(run)])
+    assert exc.value.code == 0 and 'FACTCHECK DONE ok=1 error=0' in capsys.readouterr().out
+    assert fc.jload(run / 'out/cmd-1.meta.json')['channel'] == 'command'
+
+
+def test_local_prep_refused(fc, tmp_path, capsys):
+    fc.HEADS['loc'] = ('local', 'gemma', '-')
+    with pytest.raises(SystemExit) as exc: fc.cmd_prep([str(tmp_path), '--heads', 'loc'])
+    assert exc.value.code == 2
+    assert 'local heads have no web access; factcheck needs web heads' in capsys.readouterr().err
+
+
+def test_full_registry_entry_reaches_channel(fc, tmp_path, monkeypatch):
+    fc.HEADS['loc'] = ('local', 'gemma', '-'); fc.WEB.add('loc')
+    fc.REGISTRY['loc'] = dict(channel='local', model='gemma', backend='openai', base_url='http://localhost:1234/v1')
+    run, hs = run_dir(tmp_path, fc, 'loc@high'); seen = []
+    def capture(h, prompt, out, log, timeout, **kw):
+        seen.append((h, kw)); open(out, 'w').write('answer'); return 'ok', 10, 2, None, None
+    monkeypatch.setitem(fc.headreg.CALLS, 'local', capture)
+    job = dict(hs[0], job=hs[0]['head'], model='override')
+    assert fc.run_head(str(run), job, 2).startswith('ok')
+    assert seen[0][0]['base_url'] == 'http://localhost:1234/v1'
+    assert seen[0][0]['model'] == 'override' and seen[0][0]['effort'] == 'high'
+
+
+def test_agy_answer_hang_guard_factcheck(fc, tmp_path, monkeypatch):
+    run, hs = run_dir(tmp_path, fc, 'gemini')
+    fake(tmp_path, 'agy', "import json,time\nprint(json.dumps({'response':'answer','usage':{'input_tokens':12}}),flush=True)\ntime.sleep(60)")
+    monkeypatch.setenv('THINKTANK_AGY_GRACE', '1')
+    start = time.monotonic()
+    assert fc.run_head(str(run), dict(hs[0], job='gemini-1'), 10).startswith('ok')
+    assert time.monotonic() - start < 5 and (run / 'out/gemini-1.md').read_text() == 'answer\n'
+    assert 'stopped after 1s' in (run / 'log/gemini-1.log').read_text()
+
+
+def test_agy_stderr_json_is_diagnostic(fc, tmp_path):
+    run, hs = run_dir(tmp_path, fc, 'gemini')
+    fake(tmp_path, 'agy', "import json,sys\nprint(json.dumps({'response':'answer'}))\nprint(json.dumps({'response':'auto-denied'}),file=sys.stderr)")
+    assert fc.run_head(str(run), dict(hs[0], job='gemini-1'), 2).startswith('error')
+    assert not (run / 'out/gemini-1.md').exists()

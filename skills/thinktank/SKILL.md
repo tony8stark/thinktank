@@ -22,9 +22,13 @@ Announce in one line and continue: `ThinkTank: <n> heads (<spec>) on <topic>`. T
 
 ## 2. Size the panel
 
-First run `bash "$TT/scripts/thinktank.sh" --available`: it prints the channels this machine has (`codex`, `agy`, `opencode`, `openrouter`, always `agent`). That is detection (a CLI on PATH, a key in the environment), not proof that the CLI is signed in or the key is valid: a head that fails on auth is dropped like any failed head. Build the spec only from heads on those channels; `python3 "$TT/scripts/heads.py" list` shows every head with its channel, family and whether its channel is available. When `codex` is there, use the first table; drop `gemini` from it when `agy` is missing, or use `or-gemini:1` instead when `openrouter` is there.
+First run `bash "$TT/scripts/thinktank.sh" --available`: it prints the channels this machine has (`codex`, `agy`, `opencode`, `openrouter`, `local` and `command` when the user configured such heads, always `agent`). That is detection (a CLI on PATH, a key in the environment), not proof that the CLI is signed in or the key is valid: a head that fails on auth is dropped like any failed head. Build the spec only from heads on those channels; `python3 "$TT/scripts/heads.py" list` shows every head with its channel, family and whether its channel is available. When `codex` is there, use the first table; drop `gemini` from it when `agy` is missing, or use `or-gemini:1` instead when `openrouter` is there.
 
 **No codex, but `openrouter`:** replace `sol:N` with `or-gpt:N` and add `or-deepseek:1` or `or-gemini:1` for a second family; Agent heads as in the table. OpenRouter heads cost money per call (the meta files carry `cost_usd`; the ledger line sums it). **`opencode`:** it has no default head, because the model depends on the user's providers; use the heads the user added to `~/.config/thinktank/heads.json` (`channel: "opencode"`). **`agy` without codex:** `gemini:1` plus Agent heads from the Claude-only table below (two families). If no runner head is usable after these substitutions, use the Claude-only mode.
+
+**Substitutes for Agent heads:** run `python3 "$TT/scripts/heads.py" substitutes` before sizing. Each line `<replaced>\t<head>` is a user head (a `command` head whose status check passed) that takes the place of Agent heads named `<replaced>`: put `<head>:N` into the runner spec instead of launching N Agent heads (the cap of 2 Claude heads still applies). No output: use Agent heads as in the tables. If a substitute ends in `error`, launch one Agent head instead, once.
+
+**Local and command heads** (`local`, `command`): never put them into a panel on your own. Use one only when the user names it (`local-gemma:2`), and add it next to the table's spec rather than in place of its heads unless the user says otherwise. In the report label every local answer `[local: <model>]`, and count repeats of one local head as one correlated voice: agreement among them alone never makes a finding "Agreed". A local head that fails with `context truncated` read only part of the brief: tell the user the fix the log names (Ollama: `context` field or OLLAMA_CONTEXT_LENGTH; LM Studio: `lms load --context-length`).
 
 | task | heads spec | Agent heads |
 |------|-----------|-------------|
@@ -47,7 +51,7 @@ Rules: at least 3 heads and 2 model families; at most 7 heads; at most 2 Agent-t
 
 **The Gemini head is Gemini 3.8 Flash high.** Name it in reports as "Gemini 3.8 Flash". The runner checks agy's live catalogue first and refuses to start (exit 3) when a requested agy model is missing, so a dead id cannot fail quietly inside a panel; then run `agy models`, and report to the user before changing the model.
 
-Head names (defaults in `scripts/heads.json`; the user's `~/.config/thinktank/heads.json` overrides, adds or removes heads): `sol` (codex, gpt-6.1-sol, low: the default codex head), `astra` (codex, gpt-6-astra, low: opt-in only, when the user asks for it by name), `gemini` (agy, gemini-3.8-flash-high), `gemini-flash` (the same model, kept as a name for old specs). `opus`, `sonnet`, `fable` are Agent-tool heads you launch yourself.
+Head names (defaults in `scripts/heads.json`; the user's `~/.config/thinktank/heads.json` overrides, adds or removes heads): `sol` (codex, gpt-6.1-sol, low: the default codex head), `astra` (codex, gpt-6-astra, low: opt-in only, when the user asks for it by name), `gemini` (agy, gemini-3.8-flash-high), `gemini-flash` (the same model, kept as a name for old specs). `opus`, `sonnet`, `fable` are Agent-tool heads you launch yourself. `python3 "$TT/scripts/heads.py" list` also shows the user's own heads.
 
 ## 3. Write the brief
 

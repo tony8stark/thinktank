@@ -303,3 +303,114 @@ def test_relative_runner_uses_absolute_registry_path(tmp_path, env):
     p = subprocess.run(['bash', 'scripts/thinktank.sh', str(tmp_path / 'run'), str(brief), '--heads', 'opus:1'],
                        cwd=os.path.dirname(SCRIPTS), env=env, capture_output=True, text=True)
     assert p.returncode == 0, p.stderr
+
+
+def read_log(log):
+    log.flush(); log.seek(0); return log.read()
+
+
+def command_script(tmp_path, body):
+    path = tmp_path / 'command-head'
+    path.write_text('#!' + sys.executable + '\n' + body + '\n'); path.chmod(0o700)
+    return str(path)
+
+
+@pytest.mark.parametrize('tail,want', [('11 3 2 0.25', (11, 3, 2, .25)), ('not tokens', (None,) * 4)])
+def test_command_protocol(tmp_path, env, tail, want):
+    m = load(env)
+    path = command_script(tmp_path, "import json,sys,os\na=sys.argv[1:]\nassert a[:3] == ['head','--protocol','1']\n"
+        "out=a[a.index('--out')+1]\nopen(out,'w').write(json.dumps({'argv':a,'stdin':sys.stdin.read(),'cwd':os.getcwd()}))\n"
+        "print('stdout must stay private')\nprint(" + repr(tail) + ")")
+    out = tmp_path / 'out'; out.write_text('stale'); log = open(tmp_path / 'command.log', 'w+')
+    result = m.call_command(dict(command=[path], model='custom', effort='low'), 'THE BRIEF', out, log, 3, web=True, effort='high', cwd=str(tmp_path))
+    assert result == ('ok', *want)
+    data = json.loads(out.read_text()); a = data['argv']
+    assert a[a.index('--mode')+1] == 'factcheck' and a[a.index('--model')+1] == 'custom'
+    assert a[a.index('--effort')+1] == 'high' and data['stdin'] == 'THE BRIEF' and data['cwd'] == str(tmp_path)
+    assert 'stdout must stay private' not in read_log(log) and ('not tokens' not in read_log(log))
+
+
+@pytest.mark.parametrize('code,needle', [(0, 'no answer'), (3, 'unavailable'), (7, 'command exit 7')])
+def test_command_failures_remove_stale(tmp_path, env, code, needle):
+    m = load(env); path = command_script(tmp_path, f'raise SystemExit({code})')
+    out = tmp_path / 'out'; out.write_text('stale'); log = open(tmp_path / 'command.log', 'w+')
+    assert m.call_command(dict(command=[path], model='m'), 'brief', out, log, 2)[0] == 'error'
+    assert needle in read_log(log) and not out.exists()
+
+
+def test_command_timeout_kills_descendant(tmp_path, env):
+    m = load(env); pidfile = tmp_path / 'pid'
+    path = command_script(tmp_path, "import subprocess,time\nsubprocess.Popen([" + repr(sys.executable) + ", '-c', "
+        + repr("import os,signal,time;signal.signal(signal.SIGTERM,signal.SIG_IGN);open(" + repr(str(pidfile)) + ",'w').write(str(os.getpid()));time.sleep(60)") + "])\ntime.sleep(60)")
+    log = open(tmp_path / 'command.log', 'w+')
+    try:
+        assert m.call_command(dict(command=[path], model='m'), 'brief', tmp_path / 'out', log, 1)[0] == 'error'
+        assert 'TIMEOUT after 1s' in read_log(log) and not alive(wait_file(pidfile))
+    finally:
+        if pidfile.exists():
+            try: os.kill(int(pidfile.read_text()), signal.SIGKILL)
+            except ProcessLookupError: pass
+
+
+@pytest.mark.parametrize('status,want', [(None, True), (0, True), (1, False)])
+def test_substitutes(tmp_path, env, status, want):
+    h = dict(channel='command', model='m', command=[sys.executable], replaces='sol')
+    if status is not None: h['status'] = [sys.executable, '-c', f'raise SystemExit({status})']
+    (tmp_path / 'heads.json').write_text(json.dumps({'heads': {'replacement': h}}))
+    p = cli(env, 'substitutes')
+    assert p.returncode == 0 and p.stdout == ('sol\treplacement\n' if want else '')
+
+
+def test_agy_answer_hang_guard_runner(tmp_path, env):
+    agy_env(tmp_path, env, 'sleep 60')
+    env['THINKTANK_AGY_GRACE'] = '1'
+    start = time.monotonic(); p = run(tmp_path, env, 'gemini:1', args=['--timeout', '10'])
+    assert p.returncode == 0 and time.monotonic() - start < 8, p.stdout + p.stderr
+    assert 'agy printed its answer but did not exit; stopped after 1s' in (tmp_path / 'run/log/gemini-1.log').read_text()
+
+
+def test_agy_no_answer_times_out(tmp_path, env):
+    m = load(env); log = io.StringIO()
+    pgid = tmp_path / 'pgid'; os.environ['THINKTANK_PGID'] = str(pgid)
+    try:
+        rc, raw = m.run_agy([sys.executable, '-c', 'import time;print("waiting",flush=True);time.sleep(60)'], .3, log, str(tmp_path))
+        assert rc == -1 and raw == 'waiting\n' and 'TIMEOUT' in log.getvalue()
+        assert not (tmp_path / 'pgid.child').exists()
+    finally: os.environ.pop('THINKTANK_PGID', None)
+
+
+def test_runner_command_head(tmp_path, env):
+    path = command_script(tmp_path, "import sys\na=sys.argv\nassert a[a.index('--mode')+1]=='thinktank'\nopen(a[a.index('--out')+1],'w').write(sys.stdin.read())\nprint('8 2 - -')")
+    (tmp_path / 'heads.json').write_text(json.dumps({'heads': {'cmd': dict(channel='command', model='m', command=[path])}}))
+    p = run(tmp_path, env, 'cmd')
+    assert p.returncode == 0 and 'THINKTANK DONE ok=1 error=0' in p.stdout, p.stdout + p.stderr
+    assert meta(tmp_path, 'cmd')['channel'] == 'command' and meta(tmp_path, 'cmd')['prompt_tok'] == 8
+
+
+def test_runner_local_queue_budget(tmp_path, env):
+    import shlex
+    # Exercise Bash 3.2 wiring without opening a network connection.
+    body = '''if [ "$2" = call ]; then
+  case " $* " in *" --queue-timeout 6 "*) ;; *) exit 8;; esac
+  echo answer > "$5"; echo '8 2 - -'; exit 0
+fi
+exec ''' + shlex.quote(sys.executable) + ' "$@"'
+    env['PATH'] = clean_path(tmp_path, fake_bin(tmp_path, 'python3', body))
+    (tmp_path / 'heads.json').write_text(json.dumps({'heads': {'loc': dict(channel='local', model='m', backend='ollama')}}))
+    p = run(tmp_path, env, 'loc', args=['--timeout', '2'])
+    assert p.returncode == 0 and meta(tmp_path, 'loc')['channel'] == 'local', p.stdout + p.stderr
+
+
+def test_agy_exited_wrapper_cleans_pipe_holder(tmp_path, env):
+    m = load(env); pidfile = tmp_path / 'pid'
+    code = ("import subprocess,json\nsubprocess.Popen([" + repr(sys.executable) + ",'-c',"
+            + repr("import os,time;open(" + repr(str(pidfile)) + ",'w').write(str(os.getpid()));time.sleep(60)")
+            + "])\nprint(json.dumps({'response':'answer'}),flush=True)")
+    try:
+        rc, raw = m.run_agy([sys.executable, '-c', code], 3, io.StringIO(), str(tmp_path), grace=.3)
+        assert rc == 0 and json.loads(raw)['response'] == 'answer'
+        assert not alive(wait_file(pidfile))
+    finally:
+        if pidfile.exists():
+            try: os.kill(int(pidfile.read_text()), signal.SIGKILL)
+            except ProcessLookupError: pass

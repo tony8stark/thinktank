@@ -9,14 +9,14 @@ matrix, the GPT Pro handoff packet and the ledger.
   init    <run> <source-file> [--context "audience, jurisdiction, period"] [--from PARENT_RUN]
   extract <run> [--timeout S]             independent claim extraction by one Sol head (no web)
   prep    <run> --heads SPEC [--only C1,C2] [--deep]
-  run     <run> [--timeout S]             launch every non-agent head (codex, agy, opencode, openrouter) in parallel (web on)
+  run     <run> [--timeout S]             launch every non-agent head (codex, agy, opencode, openrouter, local, command) in parallel (web on)
   collect <run> [--agent-tokens opus-1=N] [--no-fetch]   parse answers, verify quotes, write matrix.md/merged.json
   packet  <run> [--revised FILE] [--parent RUN]   render handoff.md for GPT Pro from verdicts.json
   rehearse <run> [--head sol@ultra] [--timeout S] run the handoff on one codex head before GPT Pro sees it
   pro     <run> --round N --reply FILE            count GPT Pro's findings against our verdicts, log misses
 
 SPEC is a comma list of name[@effort][:count], e.g. "sol:3,gemini:1,opus:1".
-Names come from heads.json (see heads.py list): codex, agy, opencode, openrouter heads run here; agent heads
+Names come from heads.json (see heads.py list): codex, agy, opencode, openrouter, local, command heads run here; agent heads
 (opus sonnet fable) are launched by the orchestrator with the Agent tool (general-purpose).
 Default codex head is sol (gpt-6.1-sol). astra (gpt-6-astra) is opt-in only."""
 import sys, os, re, json, glob, time, hashlib, shutil, subprocess, unicodedata, difflib
@@ -124,6 +124,7 @@ def parse_spec(spec):
         if not m or m.group(1) not in HEADS: die(f"bad head '{part}' (names: {', '.join(HEADS)})")
         name, eff, n = m.group(1), m.group(2), int(m.group(3) or 1)
         ch, model, deff = HEADS[name]
+        if name not in WEB and ch == "local": die("local heads have no web access; factcheck needs web heads")
         if name not in WEB: die(f"head '{name}' has no web access (web: false in heads.json); factcheck needs it")
         if eff and ch == "agy": die(f"agy effort is baked into the model name; use gemini or gemini-flash, not '{part}'")
         base = name if not eff or eff == deff else f"{name}.{eff}"
@@ -188,6 +189,7 @@ def render_claims(claims, offset):
 
 
 TOOLS_LINE = {
+    "command": "Use your web search and fetch tools for every claim. Copy each quote verbatim from the page you fetched, because a script will look for it on that page.",
     "codex": "Use your web search tool for every claim. Do not run shell commands and do not read local files.",
     "agy": "Use ONLY the search_web and read_url tools. Never run shell commands, never read or write files.",
     "openrouter": "Use your web search results for every claim and cite the page each quote comes from. Copy each quote "
@@ -307,19 +309,31 @@ def run_head(run, h, timeout):
             elif h["channel"] in headreg.CALLS:
                 scr = os.path.join(run, "tmp", job); os.makedirs(scr, exist_ok=True)
                 call = headreg.CALLS[h["channel"]]
-                kw = {"cwd": scr} if h["channel"] == "opencode" else {}
-                status, p, c, r, cost = call({"model": h["model"], "effort": h["effort"]}, prompt, out, lf, timeout,
+                kw = {"cwd": scr} if h["channel"] in ("opencode", "command") else {}
+                status, p, c, r, cost = call(dict(REGISTRY[h["name"]], model=h["model"], effort=h["effort"]), prompt, out, lf, timeout,
                                              web=True, effort=h["effort"], **kw)
             elif h["channel"] == "agy":
                 os.makedirs(AGY_DIR, exist_ok=True)
                 cmd = ["agy", "-p", prompt, "--project", "factcheck", "--model", h["model"],
                        "--output-format", "json", "--print-timeout", f"{timeout}s"]
-                with tempfile.TemporaryFile(mode="w+") as output, tempfile.TemporaryFile(mode="w+") as errors:
-                    rc = headreg.run_in_group(cmd, timeout + 30, stdin=subprocess.DEVNULL, stdout=output,
-                                              stderr=errors, text=True, cwd=AGY_DIR)
-                    output.seek(0); raw = output.read(); errors.seek(0); diagnostic = errors.read()
-                lf.write(raw + diagnostic)
-                if rc == -1: lf.write(f"\nTIMEOUT after {timeout}s\n")
+                rc, raw = headreg.run_agy(cmd, timeout, lf, AGY_DIR)
+                lf.flush()
+                # Read the merged log for stderr diagnostics, excluding response payloads below.
+                with open(log) as logged: diagnostic = logged.read()
+                response_lines = {}
+                for line in raw.splitlines():
+                    try: obj = json.loads(line)
+                    except ValueError: continue
+                    if isinstance(obj, dict) and ("response" in obj or "result" in obj):
+                        response_lines[line] = response_lines.get(line, 0) + 1
+                diagnostics = []
+                for line in diagnostic.splitlines():
+                    if response_lines.get(line, 0):
+                        response_lines[line] -= 1
+                        obj = json.loads(line)
+                        diagnostics.append(json.dumps({k: v for k, v in obj.items() if k not in ("response", "result")}))
+                    else: diagnostics.append(line)
+                diagnostic = "\n".join(diagnostics)
                 ans, u = None, {}
                 other = []
                 for line in raw.splitlines():

@@ -1,7 +1,7 @@
 #!/bin/bash
 # thinktank.sh <run-dir> <brief.md> [--heads "sol:3,gemini:1"] [--timeout SEC]
 # Default codex head is sol (gpt-6.1-sol); astra is opt-in only.
-# Launches codex, agy, opencode and openrouter heads in parallel on ONE brief. Heads come from heads.json (heads.py).
+# Launches codex, agy, opencode, openrouter, local and command heads in parallel on ONE brief. Heads come from heads.json (heads.py).
 # Claude-family heads (opus, sonnet, fable) are launched by Claude via the Agent tool, not here.
 # Writes out/<head>.md and out/<head>.meta.json; prints "THINKTANK DONE ok=N error=M"; exit 0 iff M=0.
 # thinktank.sh --available prints the channels this machine can run, one per line (agent is always there).
@@ -32,7 +32,7 @@ for p in "${PARTS[@]}"; do
   SEEN="$SEEN$name,"
   model_of "$name" >/dev/null || { echo "FATAL: unknown head '$name' (known: $(python3 "$HEADS_PY" list | cut -f1 | tr '\n' ' '))" >&2; exit 2; }
   read -r ch _ <<< "$(model_of "$name")"
-  case "$ch" in codex|agy|opencode|openrouter|agent) ;; *) echo "unknown channel '$ch'" >&2; exit 2;; esac
+  case "$ch" in codex|agy|opencode|openrouter|local|command|agent) ;; *) echo "unknown channel '$ch'" >&2; exit 2;; esac
   for ((i=1; i<=n; i++)); do JOBS+=("$name-$i"); done
 done
 [ ${#JOBS[@]} -gt 0 ] || usage
@@ -161,9 +161,14 @@ PYDONE
       rc=$?
       if [ $rc -eq 0 ] && [ -s "$SCR/answer.md" ]; then cp "$SCR/answer.md" "$OUT"; else status=error; fi
       read -r p c r <<< "$(codex_tokens "$LOG")" ;;
-    openrouter|opencode)
-      local tokens
-      tokens=$(with_timeout "$TIMEOUT" python3 "$HEADS_PY" call "$name" "$RUN/brief.md" "$OUT" "$LOG" --timeout "$TIMEOUT" --cwd "$SCR")
+    openrouter|opencode|local|command)
+      local tokens QUEUE
+      if [ "$ch" = local ]; then
+        QUEUE=$((TIMEOUT * 3))
+        tokens=$(with_timeout "$((TIMEOUT + QUEUE + 60))" python3 "$HEADS_PY" call "$name" "$RUN/brief.md" "$OUT" "$LOG" --timeout "$TIMEOUT" --cwd "$SCR" --queue-timeout "$QUEUE")
+      else
+        tokens=$(with_timeout "$TIMEOUT" python3 "$HEADS_PY" call "$name" "$RUN/brief.md" "$OUT" "$LOG" --timeout "$TIMEOUT" --cwd "$SCR")
+      fi
       rc=$?
       read -r p c r cost <<< "$tokens"
       if [ "$rc" -ne 0 ] || [ ! -s "$OUT" ]; then status=error; rm -f "$OUT"; fi ;;
@@ -171,8 +176,8 @@ PYDONE
       if [ "$AGY_READY" -ne 1 ]; then
         echo "cannot ensure agy project thinktank: $AGY_MESSAGE" > "$LOG"; status=error
       else
-      ( cd "$SCR" && with_timeout "$TIMEOUT" agy --project thinktank -p "$(cat "$RUN/brief.md")" --model "$model" \
-          --output-format json --print-timeout "${TIMEOUT}s" > "$LOG" 2>&1 )
+      with_timeout "$((TIMEOUT + 60))" python3 "$HEADS_PY" agy-run --timeout "$TIMEOUT" --log "$LOG" --cwd "$SCR" -- \
+          agy --project thinktank -p "$(cat "$RUN/brief.md")" --model "$model" --output-format json --print-timeout "${TIMEOUT}s"
       rc=$?
       read -r p c r <<< "$(python3 - "$LOG" "$OUT" <<'PY'
 import sys, json
