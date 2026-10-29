@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.3.0 (2026-10-29)
+
+- FactCheck's Opus heads run as the plugin's own `thinktank:web-checker` agent, which has only WebSearch, WebFetch, Read and Write, instead of `general-purpose` (which can run shell commands) held back only by the prompt. Measured on a 19-claim brief against `general-purpose` Opus the same day: 15 of 19 verdicts matched the final ones in both, one unverifiable claim in both, 26 of 26 quotes verified on the page versus 21 of 21.
 
 - OpenRouter and local heads take a `params` object merged into each request (OpenRouter provider routing, a web search engine, temperature; Ollama `options`). Keys the runner owns (model, prompt, streaming, context window, answer limit) are refused at registry load.
 

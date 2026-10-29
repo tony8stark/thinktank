@@ -53,9 +53,9 @@ RUN=~/.local/share/thinktank/runs/$(date +%Y%m%d-%H%M%S)-fc-<slug>; mkdir -p "$R
 
 In ONE message:
 1. Bash with `run_in_background` (the Bash tool stops a foreground command after 10 minutes): `$FC run $RUN`. You are notified when it exits; do not poll. It prints `FACTCHECK DONE ok=N error=M`; re-running retries only failed jobs.
-2. The Agent tool once per Agent head printed by `prep`: `subagent_type: "general-purpose"` with `model: "opus"` (the model `prep` prints), prompt:
+2. The Agent tool once per Agent head printed by `prep`: `subagent_type: "thinktank:web-checker"` with `model: "opus"` (the model `prep` prints), prompt:
    `You are fact-check head opus-1. Read <RUN>/briefs/opus-1.md and do exactly what it says, using only WebSearch and WebFetch for checking. Write your full answer to <RUN>/out/opus-1.md; the first line must be "PANEL: opus answering". Reply with the single word DONE.`
-   Why not a dedicated low-effort agent: it called far more verdicts unverifiable than `general-purpose` Opus heads; do not create one.
+   `thinktank:web-checker` ships with this plugin and has only WebSearch, WebFetch, Read and Write, so a page it reads cannot get it to run commands. Measured on a 19-claim brief against `general-purpose` Opus heads on the same day: the same agreement with the final verdicts (15 of 19), the same single unverifiable claim, and more quotes verified on the page. If the agent type is not available (the plugin was installed in a running session; restart Claude Code), use `general-purpose` once and say so in the report. Do not lower its effort: an earlier low-effort checker agent called far more verdicts unverifiable.
 
 Wait for both (the Agent result arrives as a notification). Then:
 `$FC collect $RUN --agent-tokens opus-1=<subagent_tokens>[,opus-2=<n>]` and read `$RUN/matrix.md`.

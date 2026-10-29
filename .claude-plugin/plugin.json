@@ -1,6 +1,6 @@
 {
   "name": "thinktank",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "Fan one brief to several cheap LLM heads in parallel and merge by agreement (/thinktank:thinktank), and fact-check a text claim by claim with web-enabled heads, script-verified quotes and an optional dossier for a final review (/thinktank:factcheck).",
   "author": {
     "name": "tony8stark"

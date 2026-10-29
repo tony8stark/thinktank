@@ -147,6 +147,7 @@ A brief or a text to check is sent to every head in the panel: to OpenAI through
 
 - `skills/thinktank/` SKILL.md, brief template
 - `skills/factcheck/` SKILL.md, checker and extraction briefs
+- `agents/web-checker.md` the FactCheck Opus head: WebSearch, WebFetch, Read and Write only
 - `scripts/heads.json` head registry, `scripts/heads.py` registry loader, channel detection and the OpenRouter, OpenCode, local and command channels
 - `scripts/thinktank.sh` parallel runner (writes `out/<head>.md` + `.meta.json`), `scripts/ledger.py`
 - `scripts/factcheck.py` (setup, init, extract, prep, run, collect, packet, rehearse, pro; see its docstring). `factcheck.py setup` creates a restricted agy project `factcheck` (read_url + search_web only).

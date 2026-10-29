@@ -3,7 +3,7 @@
 Facts for any coding agent (Claude Code, codex, others) working on this repository. Human contributors: see CONTRIBUTING.md.
 
 ## What this is
-A Claude Code plugin with two skills, `thinktank` and `factcheck` (`skills/*/SKILL.md`). The skills are instructions the orchestrating Claude session follows; the scripts in `scripts/` do the deterministic parts. A sentence in a SKILL.md that no longer matches a script is a bug.
+A Claude Code plugin with two skills, `thinktank` and `factcheck` (`skills/*/SKILL.md`), and one agent, `web-checker` (`agents/web-checker.md`, the FactCheck Opus head, limited to WebSearch, WebFetch, Read and Write). The skills are instructions the orchestrating Claude session follows; the scripts in `scripts/` do the deterministic parts. A sentence in a SKILL.md that no longer matches a script is a bug.
 
 ## Layout
 - `.claude-plugin/plugin.json` (plugin manifest, `version`), `.claude-plugin/marketplace.json` (this repo is its own marketplace).
