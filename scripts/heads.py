@@ -22,6 +22,7 @@ import ipaddress, math, hashlib, fcntl, threading, queue
 HERE = os.path.dirname(os.path.abspath(__file__))
 USER_REGISTRY = os.environ.get("THINKTANK_HEADS") or os.path.expanduser("~/.config/thinktank/heads.json")
 CLI_CHANNELS = ("codex", "agy", "opencode")
+CHANNELS = (*CLI_CHANNELS, "openrouter", "local", "command", "agent")
 OPENROUTER_URL = os.environ.get("OPENROUTER_URL") or "https://openrouter.ai/api/v1/chat/completions"
 
 
@@ -115,7 +116,13 @@ def registry():
                 raise RegistryError(f"{path}: invalid head {name!r}: invalid name")
             if h is None and path == USER_REGISTRY:
                 heads.pop(name, None); continue
-            if (not isinstance(h, dict) or h.get("channel") not in (*CLI_CHANNELS, "openrouter", "local", "command", "agent")
+            if path == USER_REGISTRY and isinstance(h, dict) and h.get("channel") not in CHANNELS:
+                # written for a newer plugin version (2026-10-29: a pre-switch session's copy failed the whole registry
+                # on one unknown channel and then knew no heads at all): skip that head, keep the others
+                print(f"warning: {path}: head {name!r} uses channel {h.get('channel')!r}, which this thinktank version "
+                      f"does not know (update the plugin); skipped", file=sys.stderr)
+                continue
+            if (not isinstance(h, dict) or h.get("channel") not in CHANNELS
                 or not isinstance(h.get("model"), str) or not h["model"].strip()
                 or ("effort" in h and not isinstance(h["effort"], str))
                 or ("web" in h and not isinstance(h["web"], bool))):

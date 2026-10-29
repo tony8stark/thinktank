@@ -40,7 +40,8 @@ def test_invalid_spec(tmp_path, env, spec):
     if spec == 'sol:1,sol:1': assert 'sol:2' in p.stderr
 
 
-@pytest.mark.parametrize('entry', [{'channel': 'oops', 'model': 'm'}, {'channel': 'codex', 'model': ''},
+# an unknown channel is skipped with a warning instead (test_user_head_with_unknown_channel_is_skipped_not_fatal)
+@pytest.mark.parametrize('entry', [{'channel': 'codex', 'model': ''},
     {'channel': 'codex', 'model': 'm', 'effort': 1}, {'channel': 'codex', 'model': 'm', 'web': 'yes'}, []])
 def test_registry_invalid_entry(tmp_path, env, entry):
     (tmp_path / 'heads.json').write_text(json.dumps({'heads': {'bad': entry}}))

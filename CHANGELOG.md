@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.1 (2026-10-29)
+
+- A user head whose channel this version does not know is skipped with a warning instead of failing the whole registry. Before, one head written for a newer version (for example a `command` head read by an older copy) left the runner with no heads at all. A broken entry for a known channel still fails loudly.
+
 ## 1.3.0 (2026-10-29)
 
 - FactCheck's Opus heads run as the plugin's own `thinktank:web-checker` agent, which has only WebSearch, WebFetch, Read and Write, instead of `general-purpose` (which can run shell commands) held back only by the prompt. Measured on a 19-claim brief against `general-purpose` Opus the same day: 15 of 19 verdicts matched the final ones in both, one unverifiable claim in both, 26 of 26 quotes verified on the page versus 21 of 21.

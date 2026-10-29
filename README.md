@@ -92,7 +92,7 @@ Detection means a CLI is on `PATH` or a key is in the environment; it does not c
 
 ## Adding or changing heads
 
-Heads live in `scripts/heads.json`. Put your own in `~/.config/thinktank/heads.json` (or point `THINKTANK_HEADS` at a file): same shape, an entry replaces the default of that name, `null` removes one. Example with an OpenCode head and a different OpenRouter model:
+Heads live in `scripts/heads.json`. Put your own in `~/.config/thinktank/heads.json` (or point `THINKTANK_HEADS` at a file): same shape, an entry replaces the default of that name, `null` removes one. A head whose channel this version does not know (a file written for a newer version of the plugin) is skipped with a warning; the other heads still load. Example with an OpenCode head and a different OpenRouter model:
 
 ```json
 {

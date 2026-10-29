@@ -514,3 +514,21 @@ def test_local_params_reach_the_request(local_heads, local_server, tmp_path, bac
     body = handler.seen[-1][2]
     if backend == "ollama": assert body["options"]["temperature"] == 0.3 and body["options"]["num_predict"] == 256
     else: assert body["temperature"] == 0.3 and body["max_tokens"] == 256
+
+
+def test_user_head_with_unknown_channel_is_skipped_not_fatal(tmp_path):
+    # a config written for a newer plugin must not take every other head down with it
+    user = tmp_path / "heads.json"
+    user.write_text(json.dumps({"heads": {"future": {"channel": "telepathy", "model": "m"},
+                                          "mine": {"channel": "codex", "model": "gpt-6.1-sol", "effort": "low"}}}))
+    env = dict(os.environ, THINKTANK_HEADS=str(user))
+    r = subprocess.run([sys.executable, os.path.join(SCRIPTS, "heads.py"), "list"], env=env, capture_output=True, text=True)
+    names = [line.split("\t")[0] for line in r.stdout.splitlines()]
+    assert r.returncode == 0 and "mine" in names and "sol" in names and "future" not in names
+    assert "'telepathy'" in r.stderr and "update the plugin" in r.stderr
+    r = subprocess.run(["bash", RUNNER, str(tmp_path / "run"), str(user), "--heads", "future:1"], env=env,
+                       capture_output=True, text=True)
+    assert r.returncode == 2 and "unknown head 'future'" in r.stderr
+    user.write_text(json.dumps({"heads": {"bad": {"channel": "codex", "model": ""}}}))
+    r = subprocess.run([sys.executable, os.path.join(SCRIPTS, "heads.py"), "list"], env=env, capture_output=True, text=True)
+    assert r.returncode == 2 and "invalid head 'bad'" in r.stderr   # a broken entry for a known channel still fails loudly
