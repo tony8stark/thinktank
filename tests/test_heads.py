@@ -473,3 +473,44 @@ def test_local_context_and_effort(local_heads, local_server, tmp_path, effort, w
     assert body['options']['num_ctx'] == 1024
     if want == 'omit': assert 'think' not in body
     else: assert body['think'] == want
+
+
+def test_params_validation(tmp_path):
+    user = tmp_path / "heads.json"
+    def reg(entry):
+        user.write_text(json.dumps({"heads": {"x": entry}}))
+        return load({"THINKTANK_HEADS": str(user)})
+    or_head = {"channel": "openrouter", "model": "a/b", "params": {"provider": {"order": ["x"]}, "temperature": 0.2}}
+    assert reg(or_head).registry()["x"]["params"]["temperature"] == 0.2
+    for entry, reason in [(dict(or_head, params={"model": "other"}), "may not set model"),
+                          (dict(or_head, params=[1]), "must be an object"),
+                          ({"channel": "codex", "model": "m", "params": {}}, "only for openrouter and local"),
+                          ({"channel": "local", "backend": "ollama", "model": "m", "params": {"num_ctx": 9}}, "may not set num_ctx"),
+                          ({"channel": "local", "backend": "openai", "base_url": "http://127.0.0.1:1/v1", "model": "m",
+                            "params": {"max_tokens": 9}}, "may not set max_tokens")]:
+        with pytest.raises(Exception, match=reason): reg(entry).registry()
+
+
+def test_openrouter_params_reach_the_request(tmp_path):
+    srv, url = serve()
+    try:
+        m = load({"OPENROUTER_URL": url, "OPENROUTER_API_KEY": "k", "THINKTANK_HEADS": str(tmp_path / "none.json")})
+        m.OPENROUTER_URL = url
+        h = {"model": "openai/x", "effort": "-", "params": {"plugins": [{"id": "web", "engine": "native"}], "temperature": 0.1}}
+        with open(tmp_path / "a.log", "w") as lf:
+            assert m.call_openrouter(h, "hi", str(tmp_path / "a.md"), lf, 10, web=True)[0] == "ok"
+        body = FakeOpenRouter.seen[-1][1]
+        assert body["plugins"] == [{"id": "web", "engine": "native"}] and body["temperature"] == 0.1 and body["model"] == "openai/x"
+    finally:
+        srv.shutdown()
+
+
+@pytest.mark.parametrize("backend", ["ollama", "openai"])
+@pytest.mark.parametrize("local_server", ["mock"], indirect=True)
+def test_local_params_reach_the_request(local_heads, local_server, tmp_path, backend):
+    handler, base = local_server
+    h = dict(model="gemma", backend=backend, base_url=base, max_output=256, params={"temperature": 0.3})
+    assert local_call(local_heads, tmp_path, h)[0][0] == "ok"
+    body = handler.seen[-1][2]
+    if backend == "ollama": assert body["options"]["temperature"] == 0.3 and body["options"]["num_predict"] == 256
+    else: assert body["temperature"] == 0.3 and body["max_tokens"] == 256

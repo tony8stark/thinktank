@@ -55,8 +55,21 @@ def argv_problem(argv):
     return None
 
 
+# keys a head's "params" may not override: the runner owns them (prompt, model, streaming, the context window and
+# the answer limit that the truncation and length checks rely on)
+RESERVED_PARAMS = {"openrouter": {"model", "messages", "stream"},
+                   "openai": {"model", "messages", "stream", "max_tokens"},
+                   "ollama": {"num_ctx", "num_predict"}}
+
+
 def validate_extra(h, path):
     ch = h["channel"]
+    if "params" in h:
+        kind = h.get("backend") if ch == "local" else ch
+        if kind not in RESERVED_PARAMS: return "params is only for openrouter and local heads"
+        if not isinstance(h["params"], dict): return "params must be an object"
+        clash = sorted(RESERVED_PARAMS[kind] & set(h["params"]))
+        if clash: return "params may not set " + ", ".join(clash)
     if "replaces" in h and ch != "command": return "replaces is only allowed on command heads"
     if ch == "command":
         if path != USER_REGISTRY: return "command heads are only allowed in the user registry"
@@ -192,6 +205,7 @@ def call_openrouter(h, prompt, out, logf, timeout, web=False, effort=None):
     eff = effort or h.get("effort", "-")
     if eff and eff != "-": body["reasoning"] = {"effort": eff}
     if web: body["plugins"] = [{"id": "web"}]
+    body.update(h.get("params") or {})   # per-head request fields (provider routing, web engine, temperature, ...)
     req = urllib.request.Request(OPENROUTER_URL, data=json.dumps(body).encode(), method="POST", headers={
         "Authorization": "Bearer " + os.environ.get("OPENROUTER_API_KEY", ""), "Content-Type": "application/json",
         "X-Title": "thinktank"})
@@ -404,13 +418,14 @@ def call_local(h, prompt, out, logf, timeout, web=False, effort=None, cwd=None, 
             num_ctx = math.ceil((upper + maximum + 256) / 1024) * 1024
             if cap is not None: num_ctx = min(num_ctx, cap)
             body = {"model": h["model"], "stream": False, "messages": [{"role": "user", "content": prompt}],
-                    "options": {"num_ctx": num_ctx, "num_predict": maximum}}
+                    "options": {**(h.get("params") or {}), "num_ctx": num_ctx, "num_predict": maximum}}
             if eff in ("low", "medium", "high"): body["think"] = eff
             elif eff == "none": body["think"] = False
             d = post("/api/chat", body)
         else:
             body = {"model": h["model"], "stream": False, "messages": [{"role": "user", "content": prompt}], "max_tokens": maximum}
             if eff != "-": body["reasoning_effort"] = eff
+            body.update(h.get("params") or {})
             d = post("/chat/completions", body)
         try:
             if not isinstance(d, dict): raise ValueError()

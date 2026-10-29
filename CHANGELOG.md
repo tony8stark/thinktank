@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- OpenRouter and local heads take a `params` object merged into each request (OpenRouter provider routing, a web search engine, temperature; Ollama `options`). Keys the runner owns (model, prompt, streaming, context window, answer limit) are refused at registry load.
+
 ## 1.2.1 (2026-10-29)
 
 - Ledgers and the FactCheck agy folder follow `CLAUDE_CONFIG_DIR` when Claude Code runs with a separate config directory (default unchanged: `~/.claude/thinktank/`; `THINKTANK_LEDGER` and `FACTCHECK_LEDGER` still win).
