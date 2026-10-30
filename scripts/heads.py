@@ -27,7 +27,8 @@ CHANNELS = (*CLI_CHANNELS, "openrouter", "local", "command", "agent")
 OPENROUTER_URL = os.environ.get("OPENROUTER_URL") or "https://openrouter.ai/api/v1/chat/completions"
 UPDATE_URL = os.environ.get("THINKTANK_UPDATE_URL") or "https://raw.githubusercontent.com/tony8stark/thinktank/main/.claude-plugin/plugin.json"
 UPDATE_EVERY, UPDATE_DEADLINE = 86400, 3
-UPDATE_OFF = ("THINKTANK_NO_UPDATE_CHECK", "DISABLE_UPDATES", "DISABLE_AUTOUPDATER", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC")
+# Not DISABLE_AUTOUPDATER: it only stops background updates, and the Claude desktop app sets it on every session.
+UPDATE_OFF = ("THINKTANK_NO_UPDATE_CHECK", "DISABLE_UPDATES", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC")
 
 
 class RegistryError(ValueError):
@@ -555,7 +556,7 @@ def latest_version():
 
 
 def update_notice():
-    if any(os.environ.get(v, "") not in ("", "0") for v in UPDATE_OFF): return None
+    if any(os.environ.get(v) for v in UPDATE_OFF): return None
     with open(os.path.join(HERE, "..", ".claude-plugin", "plugin.json")) as f: running = json.load(f)["version"]
     have = parse_version(running)
     if not have: return None

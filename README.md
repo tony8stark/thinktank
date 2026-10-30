@@ -64,7 +64,7 @@ Then ask for it in plain words ("run a thinktank review of this diff", "fact-che
 
 ### Updates
 
-Claude Code leaves auto-update off for third-party marketplaces like this one. Turn it on once: run `/plugin`, open the Marketplaces tab, select `thinktank`, choose Enable auto-update. New versions then arrive in the background; run `/reload-plugins` or start a new session to load them.
+Claude Code leaves auto-update off for third-party marketplaces like this one. Turn it on once: run `/plugin`, open the Marketplaces tab, select `thinktank`, choose Enable auto-update. New versions then arrive in the background; run `/reload-plugins` or start a new session to load them. The Claude desktop app sets `DISABLE_AUTOUPDATER=1` on its sessions, which keeps plugin auto-update off there too (Claude Code's `FORCE_AUTOUPDATE_PLUGINS=1` overrides it).
 
 To update by hand, run in a shell:
 
@@ -75,7 +75,7 @@ claude plugin update thinktank@thinktank
 
 and restart Claude Code.
 
-When a newer version is out, ThinkTank and FactCheck add one line about it at the end of their report.
+Whatever you choose, when a newer version is out ThinkTank and FactCheck add one line about it at the end of their report.
 
 Every version is listed on the [Releases page](https://github.com/tony8stark/thinktank/releases) and in [CHANGELOG.md](CHANGELOG.md). To hear about new ones from GitHub, use Watch, Custom, Releases on the repo page.
 
@@ -153,7 +153,7 @@ The runner calls `~/bin/my-head head --protocol 1 --mode thinktank --model opus 
 
 A brief or a text to check is sent to every head in the panel: to OpenAI through codex, to Google through agy, to Anthropic through the Agent tool, to OpenRouter and the model provider it routes to, to whatever OpenCode is configured with, or to your own command heads. A local head sends it only to the server in its `base_url`. Do not run it on material you may not share with those providers. Runs, including briefs, answers and logs, stay on disk in `~/.local/share/thinktank/runs/` until you delete them. API keys are read from the environment and never written to logs.
 
-To tell you about new versions, the plugin fetches its own `plugin.json` from GitHub at the end of a run, at most once a day. The request carries nothing about you or your runs, though GitHub sees it like any other request from your IP. Set `THINKTANK_NO_UPDATE_CHECK=1` to turn it off; `DISABLE_UPDATES=1`, `DISABLE_AUTOUPDATER=1` and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` turn it off too. It gives up after 3 seconds and never stops a run.
+To tell you about new versions, the plugin fetches its own `plugin.json` from GitHub at the end of a run, at most once a day. The request carries nothing about you or your runs, though GitHub sees it like any other request from your IP. Set `THINKTANK_NO_UPDATE_CHECK=1` to turn it off; `DISABLE_UPDATES=1` and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` turn it off too. It gives up after 3 seconds and never stops a run.
 
 ## Layout
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.1 (2026-10-30)
+
+- The update notice now works in the Claude desktop app. It was switched off by `DISABLE_AUTOUPDATER=1`, which the app sets on every session and which only stops background updates. That variable no longer turns the notice off; `THINKTANK_NO_UPDATE_CHECK`, `DISABLE_UPDATES` and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` do, with any non-empty value.
+
 ## 1.4.0 (2026-10-30)
 
 - ThinkTank and FactCheck end their report with one line when a newer plugin version is out. The plugin fetches its own `plugin.json` from GitHub at most once a day, sends nothing about you or your runs, gives up after 3 seconds and never stops a run. `THINKTANK_NO_UPDATE_CHECK=1` turns it off; `DISABLE_UPDATES=1`, `DISABLE_AUTOUPDATER=1` and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` do too.

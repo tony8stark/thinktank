@@ -21,7 +21,7 @@ class Fake(http.server.BaseHTTPRequestHandler):
 
 @pytest.fixture
 def plugin(tmp_path, monkeypatch):
-    for v in ("THINKTANK_NO_UPDATE_CHECK", "DISABLE_UPDATES", "DISABLE_AUTOUPDATER", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"):
+    for v in ("THINKTANK_NO_UPDATE_CHECK", "DISABLE_UPDATES", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"):
         monkeypatch.delenv(v, raising=False)
     (tmp_path / "scripts").mkdir(); (tmp_path / ".claude-plugin").mkdir()
     shutil.copy(SCRIPTS / "heads.py", tmp_path / "scripts/heads.py")
@@ -136,16 +136,18 @@ def test_broken_cache_is_replaced(plugin, text):
     assert json.loads(plugin.cache.read_text())["latest"] == "1.4.0"
 
 
-@pytest.mark.parametrize("var", ["THINKTANK_NO_UPDATE_CHECK", "DISABLE_UPDATES", "DISABLE_AUTOUPDATER", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"])
-def test_opt_out_sends_nothing(plugin, var):
+@pytest.mark.parametrize("var", ["THINKTANK_NO_UPDATE_CHECK", "DISABLE_UPDATES", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"])
+@pytest.mark.parametrize("value", ["1", "0"])
+def test_opt_out_sends_nothing(plugin, var, value):
     plugin.installed("1.3.1"); plugin.published("1.4.0")
-    r = plugin.check(**{var: "1"})
+    r = plugin.check(**{var: value})
     assert r.returncode == 0 and r.stdout == "" and Fake.hits == 0
 
 
-def test_opt_out_set_to_zero_does_not_count(plugin):
+def test_desktop_app_session_still_gets_the_notice(plugin):
+    """The Claude desktop app sets DISABLE_AUTOUPDATER=1 on every session; it stops background updates, not this notice."""
     plugin.installed("1.3.1"); plugin.published("1.4.0")
-    assert plugin.check(THINKTANK_NO_UPDATE_CHECK="0").stdout
+    assert "1.4.0 is available" in plugin.check(DISABLE_AUTOUPDATER="1", CLAUDE_CODE_ENTRYPOINT="claude-desktop").stdout
 
 
 @pytest.mark.parametrize("text", [None, "not json", "{}", '{"version": "dev"}', '{"version": "1.' + "9" * 5000 + '.0"}'])
