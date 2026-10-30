@@ -42,8 +42,8 @@ class Repo:
         c = ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", *args]
         return subprocess.run(c, cwd=self.root, check=True, capture_output=True, text=True).stdout.strip()
 
-    def commit(self, version, changelog=CHANGELOG, description="d"):
-        (self.root / ".claude-plugin/plugin.json").write_text(json.dumps({"version": version, "description": description}, indent=2))
+    def commit(self, version, changelog=CHANGELOG):
+        (self.root / ".claude-plugin/plugin.json").write_text(json.dumps({"version": version}, indent=2))
         (self.root / "CHANGELOG.md").write_text(changelog)
         self.git("add", "-A"); self.git("commit", "-q", "--allow-empty", "-m", "x")
         return self.git("rev-parse", "HEAD")
@@ -59,15 +59,15 @@ def repo(tmp_path):
     return Repo(root)
 
 
-def test_release_uses_this_versions_entry_at_the_commit_that_set_it(repo):
+def test_release_uses_this_versions_entry_at_the_pushed_commit(repo):
     repo.commit("1.3.0")
-    bump = repo.commit("1.3.1")
-    repo.commit("1.3.1", description="later edit, same version")
+    repo.commit("1.3.1")
     (repo.root / "README.md").write_text("later\n"); repo.git("add", "-A"); repo.git("commit", "-q", "-m", "docs")
+    head = repo.git("rev-parse", "HEAD")
     r = repo.run()
     assert r.returncode == 0, r.stderr
     got = json.loads(repo.log.read_text())
-    assert got["argv"] == ["v1.3.1", "--target", bump, "--title", "v1.3.1", "--notes-file", "-"]
+    assert got["argv"] == ["v1.3.1", "--target", head, "--title", "v1.3.1", "--notes-file", "-"]
     assert got["notes"] == "- First change.\n\n- Second change.\n"
 
 

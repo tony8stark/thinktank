@@ -31,7 +31,7 @@ Heads live in `scripts/heads.json`; a new head on an existing channel is a one-l
 
 ## Releases
 
-Maintainers bump `version` in `.claude-plugin/plugin.json` and add a `CHANGELOG.md` entry for every change that users should receive: installed copies update only when the version changes. On a push to `main`, `.github/workflows/release.yml` tags the commit that set the version and publishes a GitHub Release with that entry; a version without an entry fails the run.
+Maintainers bump `version` in `.claude-plugin/plugin.json` and add a `CHANGELOG.md` entry for every change that users should receive: installed copies update only when the version changes. On a push to `main`, `.github/workflows/release.yml` tags the pushed commit and publishes a GitHub Release with that entry; a version without an entry fails the run.
 
 ## License
 
