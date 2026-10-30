@@ -11,6 +11,7 @@ A Claude Code plugin with two skills, `thinktank` and `factcheck` (`skills/*/SKI
 - `scripts/thinktank.sh` ThinkTank runner (bash, must run on macOS /bin/bash 3.2); `scripts/ledger.py`.
 - `scripts/factcheck.py` FactCheck commands (setup, init, extract, prep, run, collect, packet, rehearse, pro).
 - `tests/` pytest suite, offline: fake CLIs on PATH, a local fake OpenRouter server, temp HOME. `tests/test_runner.sh` needs the real codex and is not in CI.
+- `.github/workflows/tests.yml` runs the suite; `.github/workflows/release.yml` runs `.github/release.sh` on every push to `main`.
 
 ## Rules
 - Python standard library only; no new dependencies.
@@ -19,4 +20,4 @@ A Claude Code plugin with two skills, `thinktank` and `factcheck` (`skills/*/SKI
 - Local heads never get `web: true`; command heads come only from a user registry file the user owns. Neither is ever added to a panel automatically.
 - Run `uv run --with pytest pytest -q tests` before committing; CI runs it on Linux and macOS.
 - Behavior change: update README.md and the affected SKILL.md in the same commit.
-- Release: bump `version` in plugin.json and add a CHANGELOG.md entry; installed copies update only on a version change. `claude plugin validate .` must pass.
+- Release: bump `version` in plugin.json and add a CHANGELOG.md entry headed `## <version> (<date>)`; installed copies update only on a version change. `claude plugin validate .` must pass. The push to `main` does the rest: `release.sh` tags the commit that set the version and publishes a GitHub Release with that entry, once per version; a version without an entry fails the run. Never create tags or releases by hand.

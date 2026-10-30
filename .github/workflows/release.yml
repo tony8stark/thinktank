@@ -1,0 +1,19 @@
+name: release
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+concurrency: release
+jobs:
+  release:
+    if: github.repository == 'tony8stark/thinktank'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - run: bash .github/release.sh
+        env:
+          GH_TOKEN: ${{ github.token }}

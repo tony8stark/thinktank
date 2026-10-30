@@ -62,16 +62,24 @@ If fewer than two heads return a usable answer, the run is labeled "degraded" an
 
 Then ask for it in plain words ("run a thinktank review of this diff", "fact-check this article") or call `/thinktank:thinktank` and `/thinktank:factcheck` directly.
 
-Update to the latest version:
+### Updates
 
+Claude Code leaves auto-update off for third-party marketplaces like this one. Turn it on once: run `/plugin`, open the Marketplaces tab, select `thinktank`, choose Enable auto-update. New versions then arrive in the background; run `/reload-plugins` or start a new session to load them.
+
+To update by hand, run in a shell:
+
+```bash
+claude plugin marketplace update thinktank
+claude plugin update thinktank@thinktank
 ```
-/plugin marketplace update thinktank
-/plugin update thinktank@thinktank
-```
 
-and restart Claude Code. Changes are listed in [CHANGELOG.md](CHANGELOG.md).
+and restart Claude Code.
 
-Optional reminder hook: copy `hooks/thinktank-check.sh` somewhere and register it as a `UserPromptSubmit` hook in `~/.claude/settings.json`.
+Every version is listed on the [Releases page](https://github.com/tony8stark/thinktank/releases) and in [CHANGELOG.md](CHANGELOG.md). To hear about new ones from GitHub, use Watch, Custom, Releases on the repo page.
+
+### Reminder hook
+
+Optional: copy `hooks/thinktank-check.sh` somewhere and register it as a `UserPromptSubmit` hook in `~/.claude/settings.json`.
 
 ## Requirements
 
