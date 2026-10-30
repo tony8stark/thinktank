@@ -358,9 +358,11 @@ def run_head(run, h, timeout):
         status = "error"
         with open(log, "a") as lf: lf.write(f"{type(e).__name__}: {e}\n")
     if status != "ok" and os.path.exists(out): os.remove(out)
-    jdump({"head": job, "channel": h["channel"], "model": h["model"], "effort": h["effort"], "status": status,
-           "latency_s": int(time.time() - start), "prompt_tok": p, "completion_tok": c, "reasoning_tok": r,
-           "cost_usd": cost, "chars": os.path.getsize(out) if os.path.exists(out) else 0}, meta)
+    data = {"head": job, "channel": h["channel"], "model": h["model"], "effort": h["effort"], "status": status,
+            "latency_s": int(time.time() - start), "prompt_tok": p, "completion_tok": c, "reasoning_tok": r,
+            "cost_usd": cost, "chars": os.path.getsize(out) if os.path.exists(out) else 0}
+    if h["channel"] == "openrouter": data["resolved_model"] = headreg.resolved_model(log) if status == "ok" else None
+    jdump(data, meta)
     return f"{status} {job} {int(time.time() - start)}s"
 
 

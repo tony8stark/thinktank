@@ -3,6 +3,11 @@
 
   available                         channels this machine can run, one per line (agent is always there)
   list                              every head: name, channel, model, effort, family, web, available
+  models [word ...]                 OpenRouter catalogue filtered by every word in id or name
+  check-models                      missing or expiring OpenRouter heads (exit 1); catalogue failure exits 3
+  set <name> <json-object-or-null>  write or remove one user registry entry
+  panel                             available panel heads, name:copies in registry order
+  resolved-model <log>              last resolved model in a log, or nothing; always exits 0
   model <name>                      "channel model effort" for one head (exit 1 if unknown), used by thinktank.sh
   call <name> <brief> <out> <log> [--timeout S] [--web] [--effort E] [--cwd DIR] [--queue-timeout S]
                                     run one openrouter, opencode, local or command head; prints "ptok ctok rtok cost"
@@ -70,9 +75,12 @@ RESERVED_PARAMS = {"openrouter": {"model", "messages", "stream"},
 
 def validate_extra(h, path):
     ch = h["channel"]
+    if "panel" in h:
+        if type(h["panel"]) is not int or not 1 <= h["panel"] <= 3: return "panel must be an integer 1..3"
+        if ch == "agent": return "panel is not for agent heads"
     if "params" in h:
         kind = h.get("backend") if ch == "local" else ch
-        if kind not in RESERVED_PARAMS: return "params is only for openrouter and local heads"
+        if not isinstance(kind, str) or kind not in RESERVED_PARAMS: return "params is only for openrouter and local heads"
         if not isinstance(h["params"], dict): return "params must be an object"
         clash = sorted(RESERVED_PARAMS[kind] & set(h["params"]))
         if clash: return "params may not set " + ", ".join(clash)
@@ -101,6 +109,43 @@ def validate_extra(h, path):
     return None
 
 
+def validate_name(name, path):
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", name):
+        raise RegistryError(f"{path}: invalid head {name!r}: invalid name")
+
+
+def validate_head(name, h, path):
+    if (not isinstance(h, dict) or h.get("channel") not in CHANNELS
+        or not isinstance(h.get("model"), str) or not h["model"].strip()
+        or ("effort" in h and not isinstance(h["effort"], str))
+        or ("web" in h and not isinstance(h["web"], bool))):
+        raise RegistryError(f"{path}: invalid head {name!r}: invalid channel, model, effort or web")
+    problem = validate_extra(h, path)
+    if problem: raise RegistryError(f"{path}: invalid head {name!r}: {problem}")
+
+
+def check_command_file(path, data):
+    if any(isinstance(h, dict) and h.get("channel") == "command" for h in data["heads"].values()):
+        st = os.stat(path)
+        if st.st_uid != os.getuid() or st.st_mode & 0o022:
+            raise RegistryError(f"{path}: refusing command heads: the file must be owned by you and not writable by others")
+
+
+def merge_heads(heads, data, path):
+    for name, h in data["heads"].items():
+        validate_name(name, path)
+        if h is None and path == USER_REGISTRY:
+            heads.pop(name, None); continue
+        if path == USER_REGISTRY and isinstance(h, dict) and h.get("channel") not in CHANNELS:
+            # written for a newer plugin version (2026-10-29: a pre-switch session's copy failed the whole registry
+            # on one unknown channel and then knew no heads at all): skip that head, keep the others
+            print(f"warning: {path}: head {name!r} uses channel {h.get('channel')!r}, which this thinktank version "
+                  f"does not know (update the plugin); skipped", file=sys.stderr)
+            continue
+        validate_head(name, h, path)
+        heads[name] = h
+
+
 def registry():
     heads = {}
     for path in (os.path.join(HERE, "heads.json"), USER_REGISTRY):
@@ -111,30 +156,8 @@ def registry():
             raise RegistryError(f"{path}: invalid registry: {e}") from None
         if not isinstance(data, dict) or not isinstance(data.get("heads"), dict):
             raise RegistryError(f"{path}: heads must be an object")
-        if path == USER_REGISTRY and any(isinstance(h, dict) and h.get("channel") == "command" for h in data["heads"].values()):
-            st = os.stat(path)
-            if st.st_uid != os.getuid() or st.st_mode & 0o022:
-                raise RegistryError(f"{path}: refusing command heads: the file must be owned by you and not writable by others")
-        for name, h in data["heads"].items():
-            valid = re.fullmatch(r"[a-z0-9][a-z0-9_-]*", name)
-            if not valid:
-                raise RegistryError(f"{path}: invalid head {name!r}: invalid name")
-            if h is None and path == USER_REGISTRY:
-                heads.pop(name, None); continue
-            if path == USER_REGISTRY and isinstance(h, dict) and h.get("channel") not in CHANNELS:
-                # written for a newer plugin version (2026-10-29: a pre-switch session's copy failed the whole registry
-                # on one unknown channel and then knew no heads at all): skip that head, keep the others
-                print(f"warning: {path}: head {name!r} uses channel {h.get('channel')!r}, which this thinktank version "
-                      f"does not know (update the plugin); skipped", file=sys.stderr)
-                continue
-            if (not isinstance(h, dict) or h.get("channel") not in CHANNELS
-                or not isinstance(h.get("model"), str) or not h["model"].strip()
-                or ("effort" in h and not isinstance(h["effort"], str))
-                or ("web" in h and not isinstance(h["web"], bool))):
-                raise RegistryError(f"{path}: invalid head {name!r}: invalid channel, model, effort or web")
-            problem = validate_extra(h, path)
-            if problem: raise RegistryError(f"{path}: invalid head {name!r}: {problem}")
-            heads[name] = h
+        if path == USER_REGISTRY: check_command_file(path, data)
+        merge_heads(heads, data, path)
     return heads
 
 
@@ -204,14 +227,123 @@ def available():
     return chans + ["agent"]
 
 
+class CatalogueError(Exception):
+    pass
+
+
+def openrouter_url_safe(value):
+    try:
+        url = urllib.parse.urlsplit(value)
+        safe = url.scheme == "https" or (url.scheme == "http" and url.hostname in ("127.0.0.1", "localhost"))
+        url.port
+        return bool(safe and url.hostname and url.username is None and url.password is None)
+    except ValueError: return False
+
+
+def openrouter_catalogue():
+    url = re.sub(r"/chat/completions$", "/models", OPENROUTER_URL)
+    if not openrouter_url_safe(url): raise CatalogueError("refusing unsafe OPENROUTER_URL")
+    try:
+        limit = 32 * 1024 * 1024
+        with urllib.request.urlopen(url, timeout=15) as r: raw = r.read(limit)
+        if len(raw) == limit: raise ValueError("catalogue exceeds 32 MB")
+        data = json.loads(raw)
+        if not isinstance(data, dict) or not isinstance(data.get("data"), list): raise ValueError("invalid catalogue shape")
+        entries = data["data"]
+        if any(not isinstance(e, dict) or not isinstance(e.get("id"), str) or not e["id"] for e in entries):
+            raise ValueError("invalid catalogue entry")
+        return {e["id"]: e for e in entries}
+    except Exception as e:
+        raise CatalogueError("OpenRouter catalogue unavailable (" + type(e).__name__ + ")") from None
+
+
+def model_price(entry, key):
+    pricing = entry.get("pricing")
+    try:
+        value = float(pricing[key]) * 1000000
+        return "%.4g" % value if math.isfinite(value) else "-"
+    except (KeyError, TypeError, ValueError, OverflowError): return "-"
+
+
+def provider_error(body):
+    try: data = json.loads(body)
+    except (ValueError, TypeError, RecursionError): return None
+    error = data.get("error") if isinstance(data, dict) else None
+    if isinstance(error, dict): error = error.get("message")
+    return error if isinstance(error, str) else None
+
+
+def resolved_model(log_path):
+    model = None
+    try:
+        with open(log_path) as f:
+            for line in f:
+                try: data = json.loads(line)
+                except ValueError: continue
+                if isinstance(data, dict) and "id" in data and isinstance(data.get("model"), str): model = data["model"]
+    except (OSError, UnicodeError): return None
+    return model
+
+
+COMMAND_BY_HAND = "command heads run programs and are added by hand"
+
+
+def write_head(name, patch, path):
+    try:
+        with open(path) as f: data = json.load(f)
+        mode = os.stat(path).st_mode & 0o7777
+    except FileNotFoundError:
+        data, mode = {"heads": {}}, 0o600
+    if not isinstance(data, dict) or not isinstance(data.get("heads"), dict):
+        raise RegistryError(f"{USER_REGISTRY}: heads must be an object")
+    if data["heads"]: check_command_file(path, data)
+    old = data["heads"].get(name)
+    if isinstance(old, dict) and old.get("channel") == "command": raise RegistryError(COMMAND_BY_HAND)
+    with open(os.path.join(HERE, "heads.json")) as f: defaults = json.load(f)["heads"]
+    if patch is None:
+        if name in defaults: data["heads"][name] = None
+        elif name in data["heads"]: del data["heads"][name]
+        else: raise RegistryError(f"unknown head: {name}")
+    else:
+        base = old if isinstance(old, dict) else defaults.get(name, {})
+        if "channel" in patch and patch["channel"] != base.get("channel"): base = {}  # its fields belong to the old channel
+        data["heads"][name] = {k: v for k, v in {**base, **patch}.items() if v is not None}
+        validate_head(name, data["heads"][name], USER_REGISTRY)
+    merge_heads(dict(defaults), data, USER_REGISTRY)  # the other entries too: never write a file registry() rejects
+    fd, tmp = tempfile.mkstemp(prefix=".heads-", dir=os.path.dirname(path))
+    try:
+        with os.fdopen(fd, "w") as f:
+            os.fchmod(f.fileno(), mode)
+            json.dump(data, f, indent=2); f.write("\n")
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp): os.unlink(tmp)
+
+
+def set_head(name, value):
+    """Change one head in the user registry. The fields in value replace those of the head as it stands, a null field
+    removes that field, a null value removes the head. A different channel starts the entry from nothing."""
+    try: patch = json.loads(value)
+    except (ValueError, RecursionError): raise RegistryError("invalid JSON for head") from None
+    validate_name(name, USER_REGISTRY)
+    if patch is not None and not isinstance(patch, dict): raise RegistryError(f"invalid head {name!r}: a JSON object or null")
+    if patch and patch.get("channel") == "command": raise RegistryError(COMMAND_BY_HAND)
+    path = os.path.realpath(USER_REGISTRY)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        lock = os.open(os.path.dirname(path), os.O_RDONLY)
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            write_head(name, patch, path)
+        finally: os.close(lock)
+    except (OSError, ValueError) as e:
+        raise RegistryError(" ".join(str(e).splitlines())) from None
+    print(f"{name}: {USER_REGISTRY}")
+
+
 def call_openrouter(h, prompt, out, logf, timeout, web=False, effort=None):
     """One chat completion. Returns (status, ptok, ctok, rtok, cost)."""
-    try:
-        url = urllib.parse.urlsplit(OPENROUTER_URL)
-        safe = url.scheme == "https" or (url.scheme == "http" and url.hostname in ("127.0.0.1", "localhost"))
-        if not safe or not url.hostname or url.username or url.password: raise ValueError("unsafe URL")
-        url.port
-    except ValueError:
+    if not openrouter_url_safe(OPENROUTER_URL):
         logf.write("refusing unsafe OPENROUTER_URL\n"); return "error", None, None, None, None
     body = {"model": h["model"], "messages": [{"role": "user", "content": prompt}], "usage": {"include": True}}
     eff = effort or h.get("effort", "-")
@@ -224,7 +356,9 @@ def call_openrouter(h, prompt, out, logf, timeout, web=False, effort=None):
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r: d = json.load(r)
     except urllib.error.HTTPError as e:
-        logf.write(f"HTTP {e.code}: {e.read().decode(errors='replace')[:2000]}\n"); return "error", None, None, None, None
+        message = provider_error(e.read(65536).decode(errors="replace")) or "(no error message)"
+        logf.write(f"HTTP {e.code}: {message[:500]}\n")
+        return "error", None, None, None, None
     except (urllib.error.URLError, TimeoutError, OSError, ValueError) as e:
         logf.write(f"{type(e).__name__}: {e}\n"); return "error", None, None, None, None
     try:
@@ -465,7 +599,7 @@ def call_local(h, prompt, out, logf, timeout, web=False, effort=None, cwd=None, 
         with open(out, "w") as f: f.write(content.strip() + "\n")
         return "ok", p, c, r, None
     except urllib.error.HTTPError as e:
-        detail = e.read().decode(errors="replace")
+        detail = provider_error(e.read(65536).decode(errors="replace")) or "(no error message)"
         if secret: detail = detail.replace(secret, "[redacted]")
         detail = detail[:300]
         return fail(f"HTTP {e.code}: {detail}")
@@ -588,6 +722,38 @@ CALLS = {"openrouter": call_openrouter, "opencode": call_opencode, "local": call
 def _main(a):
     if not a or a[0] in ("-h", "--help"): print(__doc__); return 0
     cmd = a[0]
+    if cmd == "resolved-model":
+        model = resolved_model(a[1]) if len(a) > 1 else None
+        if model is not None: print(model)
+        return 0
+    if cmd == "set":
+        if len(a) != 3: raise RegistryError("set <name> <json-object-or-null>")
+        set_head(a[1], a[2]); return 0
+    if cmd in ("models", "check-models"):
+        try: catalogue = openrouter_catalogue()
+        except CatalogueError as e: print(e, file=sys.stderr); return 3
+        if cmd == "models":
+            for model, entry in sorted(catalogue.items()):
+                text = (model + " " + str(entry.get("name", ""))).lower()
+                if not all(word.lower() in text for word in a[1:]): continue
+                print(model, entry.get("context_length") or "-", model_price(entry, "prompt"),
+                      model_price(entry, "completion"), entry.get("expiration_date") or "-", sep="\t")
+            return 0
+        found = False
+        listed = {m.split(":", 1)[1] for m in catalogue if ":" in m}  # :free, :batch are entries; :nitro, :online are not
+        for name, h in registry().items():
+            if h["channel"] != "openrouter": continue
+            model = h["model"]
+            base, _, suffix = model.partition(":")
+            entry = catalogue.get(model) or (catalogue.get(base) if suffix not in listed else None)
+            problem = "missing" if entry is None else "expires " + str(entry["expiration_date"]) if entry.get("expiration_date") else None
+            if problem: print(name, model, problem, sep="\t"); found = True
+        return 1 if found else 0
+    if cmd == "panel":
+        av = set(available())
+        for name, h in registry().items():
+            if "panel" in h and h["channel"] in av: print(f"{name}:{h['panel']}")
+        return 0
     if cmd == "update-check":
         line = update_check()
         if line: print(line)
@@ -613,7 +779,8 @@ def _main(a):
         av = set(available())
         for n, h in registry().items():
             print(f"{n}\t{h['channel']}\t{h['model']}\t{h.get('effort', '-')}\t{h.get('family', '?')}\t"
-                  f"web={'yes' if h.get('web') else 'no'}\t{'available' if h['channel'] in av else 'missing'}")
+                  f"web={'yes' if h.get('web') else 'no'}\t{'available' if h['channel'] in av else 'missing'}"
+                  + (f"\tpanel={h['panel']}" if "panel" in h else ""))
         return 0
     if cmd == "model":
         h = registry().get(a[1]) if len(a) > 1 else None

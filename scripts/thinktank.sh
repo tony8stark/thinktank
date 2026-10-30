@@ -105,7 +105,7 @@ with_timeout(){ # <sec> cmd...: record the group before allowing the child to la
     alarm $t; waitpid $pid, 0; my $rc = $?; unlink $ENV{THINKTANK_PGID};
     exit($rc & 127 ? 128 + ($rc & 127) : $rc >> 8)' "$@"; }
 
-write_meta(){ # head channel model status latency ptok ctok rtok cost
+write_meta(){ # head channel model status latency ptok ctok rtok cost [resolved-model]
   python3 - "$RUN/out/$1.meta.json" "$@" <<'PY'
 import sys, json, os
 m, head, ch, model, status, lat, p, c, r, cost = sys.argv[1:11]
@@ -113,9 +113,11 @@ out = os.path.join(os.path.dirname(m), head + ".md")
 def num(x, f=int):
     try: return f(x)
     except Exception: return None
-json.dump({"head": head, "channel": ch, "model": model, "status": status, "latency_s": int(lat),
+data = {"head": head, "channel": ch, "model": model, "status": status, "latency_s": int(lat),
   "prompt_tok": num(p), "completion_tok": num(c), "reasoning_tok": num(r), "cost_usd": num(cost, float),
-  "chars": os.path.getsize(out) if os.path.exists(out) else 0}, open(m, "w"), indent=1)
+  "chars": os.path.getsize(out) if os.path.exists(out) else 0}
+if ch == "openrouter": data["resolved_model"] = sys.argv[11] if len(sys.argv) > 11 and sys.argv[11] else None
+json.dump(data, open(m, "w"), indent=1)
 PY
 }
 
@@ -204,7 +206,9 @@ PY
   fi
   rm -f "$SCR"/pgid*
   local lat=$(( $(date +%s) - start ))
-  write_meta "$head" "$ch" "$model" "$status" "$lat" "$p" "$c" "$r" "$cost"
+  local resolved=""
+  [ "$ch" != openrouter ] || [ "$status" != ok ] || resolved=$(python3 "$HEADS_PY" resolved-model "$LOG")
+  write_meta "$head" "$ch" "$model" "$status" "$lat" "$p" "$c" "$r" "$cost" "$resolved"
   echo "$status $head ${lat}s"
 }
 

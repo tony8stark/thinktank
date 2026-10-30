@@ -32,6 +32,8 @@ First run `$FC available`: it prints the channels this machine has (`codex`, `ag
 
 Rules: at most 2 Agent heads (Anthropic capacity; two Opus heads cost no extra wall clock because they run alongside codex). Per-claim checking stays at low effort: it is a single-answer task, and higher effort does not help on those; what helps is repeats and search instructions. `gemini` (agy, Gemini 3.8 Flash high, with search_web + read_url only), `luna` and `astra` exist as heads but are opt-in: add them only when the user asks, or as a second opinion on claims whose sources this machine cannot read. `fable` only when the user asks.
 
+Heads pinned with `"panel"` join ThinkTank panels only. Use another head here only when the user names it and `heads.py list` shows `web=yes`. To add or change a model, follow section 8 of the ThinkTank skill. When a head's meta has `resolved_model`, name that model.
+
 **Claude only** (only `agent` printed, or no usable runner head): `--heads` takes Agent heads only: quick `opus:2`, standard `opus:3`, money `opus:4` (more than two Agent heads is fine here, they are the repeats). Each Agent head checks every claim. Skip `extract` (step 3.2) and `rehearse` (step 6.4), which need codex; extract the claims yourself with extra care for implicit claims and absolutes. `$FC run` has nothing to launch and prints `ok=0 error=0`; skip it. Say "single model family" in the report.
 
 ## 3. Prepare the run

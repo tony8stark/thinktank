@@ -102,7 +102,24 @@ Detection means a CLI is on `PATH` or a key is in the environment; it does not c
 
 ## Adding or changing heads
 
-Heads live in `scripts/heads.json`. Put your own in `~/.config/thinktank/heads.json` (or point `THINKTANK_HEADS` at a file): same shape, an entry replaces the default of that name, `null` removes one. A head whose channel this version does not know (a file written for a newer version of the plugin) is skipped with a warning; the other heads still load. Example with an OpenCode head and a different OpenRouter model:
+The easy way is to ask Claude in plain words: "add GLM 5.3 through OpenRouter to the panel", "always include it", "move it to 5.4", "drop Astra". It looks up the exact id, writes the entry, and makes a test call.
+
+Your choices live in `~/.config/thinktank/heads.json` (or the file in `THINKTANK_HEADS`), which plugin updates leave alone. The defaults live in `scripts/heads.json` and change with plugin versions. An entry in your file replaces the default of that name, `null` removes one. A head whose channel this version does not know (a file written for a newer version of the plugin) is skipped with a warning; the other heads still load.
+
+The same steps by hand, for a GLM head through OpenRouter, from the plugin folder (`~/.claude/plugins/cache/thinktank/thinktank/<version>/`):
+
+```bash
+python3 scripts/heads.py models glm
+python3 scripts/heads.py set or-glm '{"channel": "openrouter", "model": "z-ai/glm-5.3", "effort": "-", "family": "zhipu", "web": true}'
+```
+
+`models` prints OpenRouter's live catalogue: id, context, USD per million tokens in and out, expiry date. `set` validates the whole file before writing and merges: `set or-glm '{"model": "z-ai/glm-5.4"}'` changes only the model, a `null` field removes that field, and `set <name> null` removes the head. Command heads are the exception: `set` refuses them, because they run programs, so add those to the file by hand.
+
+**A new version of a model.** Replace the id when GLM 5.4 comes out, or use an OpenRouter alias such as `~z-ai/glm-latest`, which always points at the newest version. An exact id keeps a panel comparable from run to run; an alias can change without notice, so the run's meta file (`out/or-glm-1.meta.json`) records the model that really answered as `resolved_model`. `python3 scripts/heads.py check-models` lists your OpenRouter heads that are gone or have an expiry date.
+
+**Every panel, or only when asked.** A head you add joins a ThinkTank panel when you name it ("add or-glm:1"). To have it in every panel, ask Claude or run `set or-glm '{"panel": 1}'`: that many copies join each run, up to 3, within the panel limit of 7 heads. FactCheck ignores `panel`; name the head there, and it needs `web: true`. Works on any channel except `agent`, including local and command heads.
+
+The file by hand, with an OpenCode head and a different OpenRouter model:
 
 ```json
 {

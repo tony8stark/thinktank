@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.0 (2026-10-30)
+
+- Ask Claude to add, change, pin or remove a model and it does the work: finds the exact id, writes the entry, makes a test call. New commands behind that: `heads.py models` (OpenRouter's live catalogue), `heads.py set` (validated write to your registry; refuses command heads) and `heads.py check-models` (your OpenRouter heads that are gone or have an expiry date).
+- `"panel": N` pins a head to every ThinkTank panel, so you no longer have to name it each time.
+- OpenRouter aliases such as `~z-ai/glm-latest` work as models, and the run's meta records the model that really answered as `resolved_model`.
+- Failed OpenRouter and local calls log only the provider's error message. The whole error body used to go to the head's log, and OpenRouter's body carries an account id. If you shared logs from a failed OpenRouter head, that id was in them.
+- A weekly check opens an issue here when a shipped OpenRouter id disappears or gets an expiry date.
+
 ## 1.4.1 (2026-10-30)
 
 - The update notice now works in the Claude desktop app. It was switched off by `DISABLE_AUTOUPDATER=1`, which the app sets on every session and which only stops background updates. That variable no longer turns the notice off; `THINKTANK_NO_UPDATE_CHECK`, `DISABLE_UPDATES` and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` do, with any non-empty value.
