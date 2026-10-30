@@ -11,6 +11,7 @@
                                     run agy with a post-answer hang guard
   agy-project <name> <folder> [--grant G ...]
                                     create or repair an agy project with exactly these grants
+  update-check                      one line when a newer plugin version is out, else nothing; always exits 0
 
 Registry: heads.json next to this script, merged with ~/.config/thinktank/heads.json (or $THINKTANK_HEADS):
 same shape, a user entry replaces the default of that name, a null entry removes it.
@@ -24,6 +25,9 @@ USER_REGISTRY = os.environ.get("THINKTANK_HEADS") or os.path.expanduser("~/.conf
 CLI_CHANNELS = ("codex", "agy", "opencode")
 CHANNELS = (*CLI_CHANNELS, "openrouter", "local", "command", "agent")
 OPENROUTER_URL = os.environ.get("OPENROUTER_URL") or "https://openrouter.ai/api/v1/chat/completions"
+UPDATE_URL = os.environ.get("THINKTANK_UPDATE_URL") or "https://raw.githubusercontent.com/tony8stark/thinktank/main/.claude-plugin/plugin.json"
+UPDATE_EVERY, UPDATE_DEADLINE = 86400, 3
+UPDATE_OFF = ("THINKTANK_NO_UPDATE_CHECK", "DISABLE_UPDATES", "DISABLE_AUTOUPDATER", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC")
 
 
 class RegistryError(ValueError):
@@ -517,12 +521,76 @@ def substitutes():
         yield h["replaces"], name
 
 
+def parse_version(v):
+    m = re.fullmatch(r"(\d{1,9})\.(\d{1,9})\.(\d{1,9})", v) if isinstance(v, str) else None
+    return tuple(int(x) for x in m.groups()) if m else None
+
+
+def latest_version():
+    """The newest version on main, which is what `claude plugin update` installs: from the cache while it is under a day
+    old, else one request. The attempt is recorded before the request, so neither a parallel run nor a failure repeats
+    it today; where it cannot be recorded (OSError) there is no request at all."""
+    base = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), "thinktank")
+    cache = os.path.join(base, "update-check.json")
+
+    def save(latest):
+        tmp = f"{cache}.{os.getpid()}"
+        with open(tmp, "w") as f: json.dump({"checked": time.time(), "latest": latest}, f)
+        os.replace(tmp, cache)
+
+    os.makedirs(base, exist_ok=True)
+    with open(cache + ".lock", "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            with open(cache) as f: seen = json.load(f)
+            known, age = seen.get("latest"), time.time() - seen["checked"]
+        except Exception: known, age = None, UPDATE_EVERY
+        if 0 <= age < UPDATE_EVERY: return known
+        save(known)
+    try:
+        with urllib.request.urlopen(UPDATE_URL, timeout=UPDATE_DEADLINE) as r: known = json.loads(r.read(65536))["version"]
+    except Exception: return known
+    save(known)
+    return known
+
+
+def update_notice():
+    if any(os.environ.get(v, "") not in ("", "0") for v in UPDATE_OFF): return None
+    with open(os.path.join(HERE, "..", ".claude-plugin", "plugin.json")) as f: running = json.load(f)["version"]
+    have = parse_version(running)
+    if not have: return None
+    latest = latest_version()
+    new = parse_version(latest)
+    if not new or new <= have: return None
+    return (f"thinktank {latest} is available (running: {running}). Update: claude plugin marketplace update thinktank "
+            "&& claude plugin update thinktank@thinktank, then restart Claude Code; if auto-update already fetched it, "
+            "/reload-plugins is enough. Changes: https://github.com/tony8stark/thinktank/releases")
+
+
+def update_check():
+    """update_notice under one wall-clock deadline: a socket timeout covers neither DNS nor a response that trickles in.
+    A daemon thread is simply abandoned at exit. Anything unexpected counts as no notice."""
+    found = []
+
+    def work():
+        try: found.append(update_notice())
+        except Exception: pass
+
+    t = threading.Thread(target=work, daemon=True)
+    t.start(); t.join(UPDATE_DEADLINE)
+    return found[0] if found else None
+
+
 CALLS = {"openrouter": call_openrouter, "opencode": call_opencode, "local": call_local, "command": call_command}
 
 
 def _main(a):
     if not a or a[0] in ("-h", "--help"): print(__doc__); return 0
     cmd = a[0]
+    if cmd == "update-check":
+        line = update_check()
+        if line: print(line)
+        return 0
     if cmd == "substitutes":
         for old, new in substitutes(): print(old + "\t" + new)
         return 0

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.0 (2026-10-30)
+
+- ThinkTank and FactCheck end their report with one line when a newer plugin version is out. The plugin fetches its own `plugin.json` from GitHub at most once a day, sends nothing about you or your runs, gives up after 3 seconds and never stops a run. `THINKTANK_NO_UPDATE_CHECK=1` turns it off; `DISABLE_UPDATES=1`, `DISABLE_AUTOUPDATER=1` and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` do too.
+
 ## 1.3.1 (2026-10-29)
 
 - A user head whose channel this version does not know is skipped with a warning instead of failing the whole registry. Before, one head written for a newer version (for example a `command` head read by an older copy) left the runner with no heads at all. A broken entry for a known channel still fails loudly.

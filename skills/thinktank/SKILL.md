@@ -94,7 +94,11 @@ Ignore any "everything else checked out" line from a head: it is not a finding a
 ```
 python3 "$TT/scripts/ledger.py" "$RUN" --topic "<topic>" --agent-tokens opus-1=<subagent_tokens from the Agent result> --agreed N --likely N --single N --single-confirmed N
 ```
-It writes meta for the Agent heads (pass the `subagent_tokens` figure each Agent result prints), appends one line to `~/.claude/thinktank/ledger.jsonl` (under `$CLAUDE_CONFIG_DIR` when that is set), prints the cost line. Put that line at the end of the report, then show the report to the user.
+It writes meta for the Agent heads (pass the `subagent_tokens` figure each Agent result prints), appends one line to `~/.claude/thinktank/ledger.jsonl` (under `$CLAUDE_CONFIG_DIR` when that is set), prints the cost line. Put that line at the end of the report.
+
+Then run `python3 "$TT/scripts/heads.py" update-check`. It prints one line only when a newer plugin version is out (it asks GitHub at most once a day, gives up after 3 seconds, and a failed request prints nothing). If it prints, add that line after the cost line, in the user's language, with its commands unchanged. No output: add nothing and do not mention the check.
+
+Show the report to the user.
 
 ## 7. Failures
 

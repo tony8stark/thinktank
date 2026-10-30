@@ -75,6 +75,8 @@ claude plugin update thinktank@thinktank
 
 and restart Claude Code.
 
+When a newer version is out, ThinkTank and FactCheck add one line about it at the end of their report.
+
 Every version is listed on the [Releases page](https://github.com/tony8stark/thinktank/releases) and in [CHANGELOG.md](CHANGELOG.md). To hear about new ones from GitHub, use Watch, Custom, Releases on the repo page.
 
 ### Reminder hook
@@ -151,12 +153,14 @@ The runner calls `~/bin/my-head head --protocol 1 --mode thinktank --model opus 
 
 A brief or a text to check is sent to every head in the panel: to OpenAI through codex, to Google through agy, to Anthropic through the Agent tool, to OpenRouter and the model provider it routes to, to whatever OpenCode is configured with, or to your own command heads. A local head sends it only to the server in its `base_url`. Do not run it on material you may not share with those providers. Runs, including briefs, answers and logs, stay on disk in `~/.local/share/thinktank/runs/` until you delete them. API keys are read from the environment and never written to logs.
 
+To tell you about new versions, the plugin fetches its own `plugin.json` from GitHub at the end of a run, at most once a day. The request carries nothing about you or your runs, though GitHub sees it like any other request from your IP. Set `THINKTANK_NO_UPDATE_CHECK=1` to turn it off; `DISABLE_UPDATES=1`, `DISABLE_AUTOUPDATER=1` and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` turn it off too. It gives up after 3 seconds and never stops a run.
+
 ## Layout
 
 - `skills/thinktank/` SKILL.md, brief template
 - `skills/factcheck/` SKILL.md, checker and extraction briefs
 - `agents/web-checker.md` the FactCheck Opus head: WebSearch, WebFetch, Read and Write only
-- `scripts/heads.json` head registry, `scripts/heads.py` registry loader, channel detection and the OpenRouter, OpenCode, local and command channels
+- `scripts/heads.json` head registry, `scripts/heads.py` registry loader, channel detection, the OpenRouter, OpenCode, local and command channels, and the update check
 - `scripts/thinktank.sh` parallel runner (writes `out/<head>.md` + `.meta.json`), `scripts/ledger.py`
 - `scripts/factcheck.py` (setup, init, extract, prep, run, collect, packet, rehearse, pro; see its docstring). `factcheck.py setup` creates a restricted agy project `factcheck` (read_url + search_web only).
 - `hooks/thinktank-check.sh` UserPromptSubmit reminder.

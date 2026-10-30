@@ -87,6 +87,8 @@ Write `$RUN/verdicts.json`, one entry per claim id (including N-claims):
 
 Show the user: `revised.md`, the table of changes (before, after, source), the UNRESOLVED items and per-head stats from `matrix.md`. If you wrote the dossier, give its path and copy it to the clipboard when a clipboard tool exists (`pbcopy` on macOS, `wl-copy` or `xclip -selection clipboard` on Linux; otherwise just give the path). Describe the run from `out/*.meta.json` and `merged.json` (which heads ran and parsed), never from intent.
 
+Last, run `python3 "<root>/scripts/heads.py" update-check`. It prints one line only when a newer plugin version is out (it asks GitHub at most once a day, gives up after 3 seconds, and a failed request prints nothing). If it prints, end your delivery with that line, in the user's language, with its commands unchanged. No output: add nothing and do not mention the check.
+
 ## 8. When GPT Pro answers (optional)
 
 When the user brings back GPT Pro's reply, do the bookkeeping yourself (never ask the user to record anything):
