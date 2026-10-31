@@ -113,11 +113,21 @@ python3 scripts/heads.py models glm
 python3 scripts/heads.py set or-glm '{"channel": "openrouter", "model": "z-ai/glm-5.3", "effort": "-", "family": "zhipu", "web": true}'
 ```
 
-`models` prints OpenRouter's live catalogue: id, context, USD per million tokens in and out, expiry date. `set` validates the whole file before writing and merges: `set or-glm '{"model": "z-ai/glm-5.4"}'` changes only the model, a `null` field removes that field, and `set <name> null` removes the head. Command heads are the exception: `set` refuses them, because they run programs, so add those to the file by hand.
+`models` prints OpenRouter's live catalogue: id, context, USD per million tokens in and out (the cheapest provider's, see below), expiry date. `set` validates the whole file before writing and merges: `set or-glm '{"model": "z-ai/glm-5.4"}'` changes only the model, a `null` field removes that field, and `set <name> null` removes the head. Command heads are the exception: `set` refuses them, because they run programs, so add those to the file by hand.
 
 **A new version of a model.** Replace the id when GLM 5.4 comes out, or use an OpenRouter alias such as `~z-ai/glm-latest`, which always points at the newest version. An exact id keeps a panel comparable from run to run; an alias can change without notice, so the run's meta file (`out/or-glm-1.meta.json`) records the model that really answered as `resolved_model`. `python3 scripts/heads.py check-models` lists your OpenRouter heads that are gone or have an expiry date.
 
 **Every panel, or only when asked.** A head you add joins a ThinkTank panel when you name it ("add or-glm:1"). To have it in every panel, ask Claude or run `set or-glm '{"panel": 1}'`: that many copies join each run, up to 3, within the panel limit of 7 heads. FactCheck ignores `panel`; name the head there, and it needs `web: true`. Works on any channel except `agent`, including local and command heads.
+
+**Price and provider on OpenRouter.** The prices in `models` are a lower bound. One model usually has many providers with different prices and quantizations, and [OpenRouter picks one for each request](https://openrouter.ai/docs/guides/routing/provider-selection) from price, speed and reliability, so the provider can change between runs. On 2026-10-31 GLM 5.3 was listed at $0.07 / $1.40 per million tokens, and a head with no route set answered from a $0.104 / $2.77 endpoint. `cost_usd` in the run's meta file is what a call really cost, and the head's log (`log/or-glm-1.log`) names the provider. To fix the route, set the head's `params`, which replaces any `params` it had:
+
+```bash
+python3 scripts/heads.py set or-glm '{"params": {"provider": {"sort": "price"}}}'
+python3 scripts/heads.py set or-glm '{"params": {"provider": {"quantizations": ["fp8"]}}}'
+python3 scripts/heads.py set or-glm '{"params": {"provider": {"order": ["z-ai"], "allow_fallbacks": false}}}'
+```
+
+The first takes the cheapest provider, the second only fp8 endpoints, the third only Z.AI, and that head fails when Z.AI is down. Each provider's slug is on the model's page at openrouter.ai.
 
 The file by hand, with an OpenCode head and a different OpenRouter model:
 

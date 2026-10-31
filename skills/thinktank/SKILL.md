@@ -119,7 +119,7 @@ When the user asks for a model ("add GLM through OpenRouter", "move it to 5.4", 
 **To remove a head:** `python3 "$TT/scripts/heads.py" set <name> null`, then report it. For a shipped head this stores `null`, which hides it. Skip the steps below.
 
 1. **Find the exact id** when the model changes. Never write one from memory: ids change and a wrong one fails only at run time.
-   - OpenRouter: `python3 "$TT/scripts/heads.py" models <words>` prints the live catalogue: id, context, USD per million tokens in and out, expiry date. It needs no key. Ids starting with `~` are aliases that follow the newest version, for example `~z-ai/glm-latest`.
+   - OpenRouter: `python3 "$TT/scripts/heads.py" models <words>` prints the live catalogue: id, context, USD per million tokens in and out, expiry date. It needs no key. The prices are the cheapest provider's, so quote them as a lower bound. Ids starting with `~` are aliases that follow the newest version, for example `~z-ai/glm-latest`.
    - OpenCode: `opencode models`. agy: `agy models`. Ollama: `ollama list`. LM Studio: `lms ls`. codex: the id the user gives.
 2. **Write it** with `python3 "$TT/scripts/heads.py" set <name> '<json>'`. `set` merges: the fields you pass replace those fields, a `null` field removes it, the rest of the entry stays. So a new head gets a full entry and an existing one only what changes:
    ```
@@ -130,7 +130,8 @@ When the user asks for a model ("add GLM through OpenRouter", "move it to 5.4", 
    - `family` is the model maker, which keeps panels mixed. `web: true` lets FactCheck use the head; never on a local head. Local heads need more fields: see "Local models" in the README. Passing a different `channel` starts the entry from nothing, so pass all of it.
    - Use the exact id by default, so a panel stays comparable. Use an alias when the user wants the newest version, and say the model can then change without notice.
    - `"panel": 1` pins the head to every ThinkTank panel, when the user wants it always. Tell them that an OpenRouter head costs money on every run.
+   - OpenRouter picks the provider for each request, so the provider and the price can change between runs. When the user wants a fixed route, set `params`: `{"params": {"provider": {"sort": "price"}}}` for the cheapest, `{"quantizations": ["fp8"]}` inside `provider` for a precision, `{"order": ["<slug>"], "allow_fallbacks": false}` inside it for one provider (the head then fails when that provider is down). `params` replaces the whole object.
 3. **Test it** with a one-line run: `RUN=$(mktemp -d); echo 'Reply with the word PONG.' > "$RUN/brief.md"; bash "$TT/scripts/thinktank.sh" "$RUN" "$RUN/brief.md" --heads "<name>:1"`. It must end with `THINKTANK DONE ok=1 error=0`; a dead id fails here. Otherwise read `$RUN/log/<name>-1.log` and report what it says. On OpenRouter, `resolved_model` in `$RUN/out/<name>-1.meta.json` names the model that answered. On other channels the test shows that the head answers, not which model did.
-4. **Report** what changed, the file `set` printed (plugin updates leave it alone), and the price when you have it.
+4. **Report** what changed, the file `set` printed (plugin updates leave it alone), and the price when you have it. On OpenRouter, say the catalogue price is a lower bound; `$RUN/log/<name>-1.log` names the provider that answered the test, and `cost_usd` in its meta is what the call really cost.
 
 `check-models` lists OpenRouter heads, the user's included, that are gone or have an expiry date.

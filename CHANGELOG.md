@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.1 (2026-10-31)
+
+- The prices `heads.py models` prints are the cheapest OpenRouter provider's, not what a call costs: GLM 5.3 listed at $0.07 / $1.40 per million tokens answered from a $0.104 / $2.77 endpoint. The README and the skill now say so and show how to fix the route with `params.provider`, and Claude reports a catalogue price as a lower bound.
+
 ## 1.5.0 (2026-10-30)
 
 - Ask Claude to add, change, pin or remove a model and it does the work: finds the exact id, writes the entry, makes a test call. New commands behind that: `heads.py models` (OpenRouter's live catalogue), `heads.py set` (validated write to your registry; refuses command heads) and `heads.py check-models` (your OpenRouter heads that are gone or have an expiry date).
