@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.3 (2026-11-13)
+
+- The OpenRouter head `or-gemini` runs `google/gemini-4-hydrogen` instead of `google/gemini-3.8-flash`, so it matches the `gemini` head. It costs more per token: $1.50 / $7.50 per million against $0.825 / $4.125 (catalogue prices, a lower bound). To stay on Flash, set the model back in your `~/.config/thinktank/heads.json`.
+- On a 108 KB review brief the Flash head had spent its whole output cap on reasoning (62,914 of 65,532 tokens) and returned no finding. Hydrogen answered the same brief in the contract format with 26,897 reasoning tokens, in 181 s for $0.26.
+
 ## 1.5.2 (2026-11-13)
 
 - The `gemini` head now runs Gemini 4 Hydrogen (high), which reached the Antigravity CLI on 2026-11-12, instead of Gemini 3.8 Flash. On a three-question reasoning check it answered as correctly and sooner (18 s against 26 s).

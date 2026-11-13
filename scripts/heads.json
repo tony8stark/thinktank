@@ -10,7 +10,7 @@
     "sonnet":       {"channel": "agent", "model": "sonnet", "effort": "low", "family": "anthropic", "web": true},
     "fable":        {"channel": "agent", "model": "fable", "effort": "low", "family": "anthropic", "web": true},
     "or-gpt":       {"channel": "openrouter", "model": "openai/gpt-6.1-sol", "effort": "low", "family": "openai", "web": true},
-    "or-gemini":    {"channel": "openrouter", "model": "google/gemini-3.8-flash", "effort": "-", "family": "google", "web": true},
+    "or-gemini":    {"channel": "openrouter", "model": "google/gemini-4-hydrogen", "effort": "-", "family": "google", "web": true},
     "or-deepseek":  {"channel": "openrouter", "model": "deepseek/deepseek-v4-pro", "effort": "-", "family": "deepseek", "web": true}
   }
 }
