@@ -36,7 +36,7 @@ for p in "${PARTS[@]}"; do
   for ((i=1; i<=n; i++)); do JOBS+=("$name-$i"); done
 done
 [ ${#JOBS[@]} -gt 0 ] || usage
-# gemini = Gemini 3.8 Flash high; gemini-flash is the same model.
+# gemini = Gemini 4 Hydrogen high; gemini-flash = Gemini 3.8 Flash high, for agy accounts without Hydrogen.
 # agy model ids can leave the catalogue without notice. Check the live catalogue before launching anything and
 # never fall back to another model: an answer filed under the wrong model is worse than a missing head. Exit 3 = a requested agy model is not offered right now.
 AGY_MODELS=""

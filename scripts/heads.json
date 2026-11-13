@@ -4,7 +4,7 @@
     "sol":          {"channel": "codex", "model": "gpt-6.1-sol", "effort": "low", "family": "openai", "web": true},
     "luna":         {"channel": "codex", "model": "gpt-6-luna", "effort": "medium", "family": "openai", "web": true},
     "astra":        {"channel": "codex", "model": "gpt-6-astra", "effort": "low", "family": "openai", "web": true},
-    "gemini":       {"channel": "agy", "model": "gemini-3.8-flash-high", "effort": "-", "family": "google", "web": true},
+    "gemini":       {"channel": "agy", "model": "gemini-4-hydrogen-high", "effort": "-", "family": "google", "web": true},
     "gemini-flash": {"channel": "agy", "model": "gemini-3.8-flash-high", "effort": "-", "family": "google", "web": true},
     "opus":         {"channel": "agent", "model": "opus", "effort": "low", "family": "anthropic", "web": true},
     "sonnet":       {"channel": "agent", "model": "sonnet", "effort": "low", "family": "anthropic", "web": true},

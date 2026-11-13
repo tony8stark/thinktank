@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.2 (2026-11-13)
+
+- The `gemini` head now runs Gemini 4 Hydrogen (high), which reached the Antigravity CLI on 2026-11-12, instead of Gemini 3.8 Flash. On a three-question reasoning check it answered as correctly and sooner (18 s against 26 s).
+- `gemini-flash` stays on Gemini 3.8 Flash (high). If your `agy models` lists no Hydrogen, the runner refuses `gemini` before launching anything (exit 3) and Claude re-runs the panel with `gemini-flash` instead.
+
 ## 1.5.1 (2026-10-31)
 
 - The prices `heads.py models` prints are the cheapest OpenRouter provider's, not what a call costs: GLM 5.3 listed at $0.07 / $1.40 per million tokens answered from a $0.104 / $2.77 endpoint. The README and the skill now say so and show how to fix the route with `params.provider`, and Claude reports a catalogue price as a lower bound.

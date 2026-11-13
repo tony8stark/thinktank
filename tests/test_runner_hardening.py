@@ -76,7 +76,7 @@ def test_retry_and_different_brief(tmp_path, env):
 
 def agy_env(tmp_path, env, diagnostic=''):
     (tmp_path / '.gemini/config/projects').mkdir(parents=True)
-    body = '''if [ "$1" = models ]; then echo gemini-3.8-flash-high; exit; fi
+    body = '''if [ "$1" = models ]; then echo gemini-4-hydrogen-high; exit; fi
 python3 - "$@" <<'INNER'
 import json,os,sys
 print(json.dumps({'response': 'auto-denied ' + os.getcwd() + ' ' + ' '.join(sys.argv[1:])}))
@@ -102,7 +102,7 @@ def test_agy_diagnostics_fail(tmp_path, env, diagnostic):
 
 
 def test_agy_missing_setup_other_heads_run(tmp_path, env):
-    env['PATH'] = clean_path(tmp_path, fake_bin(tmp_path, 'agy', 'if [ "$1" = models ]; then echo gemini-3.8-flash-high; else echo SHOULD-NOT-RUN; fi'),
+    env['PATH'] = clean_path(tmp_path, fake_bin(tmp_path, 'agy', 'if [ "$1" = models ]; then echo gemini-4-hydrogen-high; else echo SHOULD-NOT-RUN; fi'),
                              fake_bin(tmp_path, 'codex', 'while [ $# -gt 0 ]; do [ "$1" = -o ] && echo ok > "$2"; shift; done'))
     assert run(tmp_path, env, 'gemini:1,sol:1').returncode == 1
     assert 'agy not set up' in (tmp_path / 'run/log/gemini-1.log').read_text()
