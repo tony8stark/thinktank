@@ -598,3 +598,31 @@ def test_agy_stderr_json_is_diagnostic(fc, tmp_path):
     fake(tmp_path, 'agy', "import json,sys\nprint(json.dumps({'response':'answer'}))\nprint(json.dumps({'response':'auto-denied'}),file=sys.stderr)")
     assert fc.run_head(str(run), dict(hs[0], job='gemini-1'), 2).startswith('error')
     assert not (run / 'out/gemini-1.md').exists()
+
+
+ARGV_CODEX = ("import json,sys\na=sys.argv\njson.dump(a[1:],open({log!r},'w'))\n"
+              "open(a[a.index('-o')+1],'w').write({answer!r})")
+
+
+def no_notify(argv):
+    """True when the codex call carries `-c notify=[]`, so the user's notify hook does not run for a head."""
+    return any(a == "-c" and b == "notify=[]" for a, b in zip(argv, argv[1:]))
+
+
+def test_codex_head_runs_without_the_users_notify_hook(fc, tmp_path):
+    run, hs = run_dir(tmp_path, fc, "sol:1")
+    log = tmp_path / "argv.json"
+    fake(tmp_path, "codex", ARGV_CODEX.format(log=str(log), answer="fresh"))
+    with pytest.raises(SystemExit) as exc: fc.cmd_run([str(run)])
+    assert exc.value.code == 0
+    argv = json.loads(log.read_text())
+    assert argv[0] == "exec" and no_notify(argv)
+
+
+def test_codex_extract_runs_without_the_users_notify_hook(fc, tmp_path):
+    run, hs = run_dir(tmp_path, fc)
+    log = tmp_path / "argv.json"
+    fake(tmp_path, "codex", ARGV_CODEX.format(log=str(log), answer='{"claims":[]}'))
+    fc.cmd_extract([str(run)])
+    argv = json.loads(log.read_text())
+    assert argv[0] == "exec" and no_notify(argv)

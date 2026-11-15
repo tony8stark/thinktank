@@ -42,6 +42,9 @@ VERDICTS = ("supported", "contradicted", "qualify", "outdated", "unverifiable")
 PROBLEM = {"contradicted", "qualify", "outdated"}
 STRONG_KINDS = {"primary", "official"}
 GOOD = ("match", "fuzzy", "corroborated")
+# A codex head must not run the user's own `notify` hook. The Codex desktop app points it at its Computer Use
+# helper, which sends Apple Events, and macOS then asks the user to let "claude" control "Codex Computer Use".
+NO_NOTIFY = "notify=[]"
 
 
 def die(msg, code=2):
@@ -302,7 +305,7 @@ def run_head(run, h, timeout):
                 ans = os.path.join(scr, "answer.md")
                 if os.path.exists(ans): os.remove(ans)
                 cmd = ["codex", "exec", "--skip-git-repo-check", "-s", "read-only", "-m", h["model"],
-                       "-c", f'model_reasoning_effort="{h["effort"]}"', "-c", 'web_search="live"', "-o", ans, "-"]
+                       "-c", f'model_reasoning_effort="{h["effort"]}"', "-c", 'web_search="live"', "-c", NO_NOTIFY, "-o", ans, "-"]
                 rc = run_codex(cmd, bf, lf, scr, timeout)
                 if rc == 0 and os.path.exists(ans) and os.path.getsize(ans): shutil.copy(ans, out)
                 else: status = "error"
@@ -432,7 +435,7 @@ def recover_extract(log):
 def extract_chunk(d, brief, job, model, effort, timeout):
     ans, log = os.path.join(d, job + ".md"), os.path.join(d, job + ".log")
     cmd = ["codex", "exec", "--skip-git-repo-check", "-s", "read-only", "-m", model,
-           "-c", f'model_reasoning_effort="{effort}"', "-o", ans, "-"]
+           "-c", f'model_reasoning_effort="{effort}"', "-c", NO_NOTIFY, "-o", ans, "-"]
     items, why = None, ""
     for attempt in (1, 2):  # one retry, only for a failure that is not our own timeout (dropped stream, bad JSON)
         if os.path.exists(ans): os.remove(ans)  # never parse a stale answer from an earlier attempt

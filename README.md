@@ -98,6 +98,8 @@ Only Claude Code is required. The skills detect what else is installed and size 
 
 Also `python3` and `perl` (preinstalled on macOS and most Linux distributions). For factcheck, optionally `pdftotext` (PDF quotes; `brew install poppler` or `apt install poppler-utils`) and Chrome or Chromium for JS-heavy pages (found automatically; set `THINKTANK_CHROME` to a binary to override). Works on macOS and Linux.
 
+codex heads run with `-c 'notify=[]'`, so the `notify` hook in your `~/.codex/config.toml` does not fire for them. The Codex desktop app points that hook at its Computer Use helper, which sends Apple Events; started from a head, it made macOS ask whether "claude" may control "Codex Computer Use". The plugin never needed that access: if you still see the dialog on an older version, "Don't Allow" is safe.
+
 Detection means a CLI is on `PATH` or a key is in the environment; it does not check that you are signed in. Ask Claude "which thinktank heads are available?", or run `python3 scripts/heads.py list` from a clone of this repo.
 
 ## Adding or changing heads

@@ -16,6 +16,7 @@ A Claude Code plugin with two skills, `thinktank` and `factcheck` (`skills/*/SKI
 ## Rules
 - Python standard library only; no new dependencies.
 - Heads get tools only through their channel's permission mechanism (agy projects, OpenCode 1.x OPENCODE_PERMISSION or 2.x permission rules in OPENCODE_CONFIG_CONTENT with --standalone, codex read-only sandbox), never only through prompt wording.
+- Every `codex exec` call carries `-c 'notify=[]'` (`NO_NOTIFY` in factcheck.py): the user's codex `notify` hook must not run for a head. The Codex desktop app points it at its Computer Use helper, and macOS then asks the user to let "claude" control "Codex Computer Use".
 - Never write API keys, personal paths or provider responses beyond id/model/usage to logs.
 - Local heads never get `web: true`; command heads come only from a user registry file the user owns, and `heads.py set` refuses them. Neither joins a panel unless the user names it or pins it with `"panel"`.
 - Provider error bodies reach logs only as their error message (`provider_error`): they can carry account ids.

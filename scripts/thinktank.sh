@@ -158,8 +158,10 @@ PYDONE
   case "$ch" in
     codex)
       rm -f "$SCR/answer.md"
+      # notify=[]: skip the user's codex notify hook. The Codex desktop app points it at its Computer Use helper,
+      # which sends Apple Events, and macOS then asks to let "claude" control "Codex Computer Use".
       ( cd "$SCR" && with_timeout "$TIMEOUT" codex exec --skip-git-repo-check -s read-only \
-          -m "$model" -c model_reasoning_effort="\"$eff\"" -o "$SCR/answer.md" - < "$RUN/brief.md" > "$LOG" 2>&1 )
+          -m "$model" -c model_reasoning_effort="\"$eff\"" -c 'notify=[]' -o "$SCR/answer.md" - < "$RUN/brief.md" > "$LOG" 2>&1 )
       rc=$?
       if [ $rc -eq 0 ] && [ -s "$SCR/answer.md" ]; then cp "$SCR/answer.md" "$OUT"; else status=error; fi
       read -r p c r <<< "$(codex_tokens "$LOG")" ;;

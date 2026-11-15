@@ -415,3 +415,16 @@ def test_agy_exited_wrapper_cleans_pipe_holder(tmp_path, env):
         if pidfile.exists():
             try: os.kill(int(pidfile.read_text()), signal.SIGKILL)
             except ProcessLookupError: pass
+
+
+def test_codex_head_runs_without_the_users_notify_hook(tmp_path, env):
+    # The Codex desktop app sets `notify` to its Computer Use helper; run from a head, it makes macOS ask the user
+    # to let "claude" control "Codex Computer Use".
+    log = tmp_path / 'argv'
+    env['ARGV_LOG'] = str(log)
+    env['PATH'] = clean_path(tmp_path, fake_bin(tmp_path, 'codex',
+        'printf "%s\\n" "$@" > "$ARGV_LOG"; while [ $# -gt 0 ]; do [ "$1" = -o ] && OUT="$2"; shift; done; echo answer > "$OUT"'))
+    p = run(tmp_path, env)
+    assert p.returncode == 0, p.stdout + p.stderr
+    argv = log.read_text().splitlines()
+    assert argv[0] == 'exec' and any(a == '-c' and b == 'notify=[]' for a, b in zip(argv, argv[1:]))

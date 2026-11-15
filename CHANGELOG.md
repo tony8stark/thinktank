@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.4 (2026-11-15)
+
+- macOS no longer asks whether "claude" may control "Codex Computer Use" during a run. The Codex desktop app sets the `notify` hook in `~/.codex/config.toml` to its Computer Use helper, which sends Apple Events after every codex turn; started from a head, the request was attributed to Claude Code. codex heads now run with `-c 'notify=[]'`, so the hook does not fire for them. Your own codex sessions keep it.
+- The plugin never used that access. If you answered the dialog before, nothing needs undoing: "Don't Allow" was safe, and "Allow" can be removed in System Settings, Privacy & Security, Automation.
+
 ## 1.5.3 (2026-11-13)
 
 - The OpenRouter head `or-gemini` runs `google/gemini-4-hydrogen` instead of `google/gemini-3.8-flash`, so it matches the `gemini` head. It costs more per token: $1.50 / $7.50 per million against $0.825 / $4.125 (catalogue prices, a lower bound). To stay on Flash, set the model back in your `~/.config/thinktank/heads.json`.
