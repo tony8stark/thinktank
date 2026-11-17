@@ -90,7 +90,7 @@ Only Claude Code is required. The skills detect what else is installed and size 
 | installed | panel |
 |-----------|-------|
 | Claude Code only | Opus (and Sonnet) heads via the Agent tool; works, but one model family shares blind spots |
-| + [codex CLI](https://github.com/openai/codex), signed in | codex heads (`gpt-6.1-sol`, low effort) carry the repeats, Opus adds a second family; recommended |
+| + [codex CLI](https://github.com/openai/codex), signed in | codex heads (`gpt-6.2-sol`, low effort) carry the repeats, Opus adds a second family; recommended |
 | + `agy` (Antigravity CLI) | adds a Gemini head |
 | + `OPENROUTER_API_KEY` in the environment | OpenRouter heads (`or-gpt`, `or-gemini`, `or-deepseek`): other model families without installing their CLIs; paid per call |
 | + [OpenCode](https://opencode.ai) CLI, 1.x or 2.x | any model you have set up in OpenCode, once you add a head for it (below) |

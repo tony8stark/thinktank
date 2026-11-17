@@ -18,7 +18,7 @@ matrix, the GPT Pro handoff packet and the ledger.
 SPEC is a comma list of name[@effort][:count], e.g. "sol:3,gemini:1,opus:1".
 Names come from heads.json (see heads.py list): codex, agy, opencode, openrouter, local, command heads run here; agent heads
 (opus sonnet fable) are launched by the orchestrator with the Agent tool (general-purpose).
-Default codex head is sol (gpt-6.1-sol). astra (gpt-6-astra) is opt-in only."""
+Default codex head is sol (gpt-6.2-sol). astra (gpt-6.2-astra) is opt-in only."""
 import sys, os, re, json, glob, time, hashlib, shutil, subprocess, unicodedata, difflib
 import urllib.request, urllib.error, urllib.parse, html.parser, ipaddress, socket, tempfile
 import http.server, threading, select

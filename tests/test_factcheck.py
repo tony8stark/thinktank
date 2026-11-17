@@ -126,7 +126,7 @@ def test_extract_uses_sol_and_writes_sol_json(tmp_path, monkeypatch, capsys):
     fc.cmd_extract([run])
     assert json.load(open(os.path.join(run, "extract", "sol.json"))) == [{"para": "¶1", "claim": "x"}]
     assert not os.path.exists(os.path.join(run, "extract", "astra.json"))
-    assert "gpt-6.1-sol" in capsys.readouterr().out
+    assert "gpt-6.2-sol" in capsys.readouterr().out
 
 
 def test_extract_retries_once_after_a_failed_attempt(tmp_path, monkeypatch):
@@ -205,7 +205,7 @@ def test_extract_merge_source_order_and_per_chunk_timeout(tmp_path, monkeypatch,
     assert [c["claim"] for c in items] == [str(i) + s for i in range(1, 9) for s in ("a", "b")]
     assert len(calls) == 8 and all(t == 42 for _, t in calls)
     assert 1 < peak <= 6
-    assert "extract: 16 claims from sol (gpt-6.1-sol)" in capsys.readouterr().out
+    assert "extract: 16 claims from sol (gpt-6.2-sol)" in capsys.readouterr().out
 
 
 def test_extract_recovers_all_rollout_messages_from_latest_attempt(tmp_path, monkeypatch):

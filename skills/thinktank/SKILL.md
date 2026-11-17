@@ -1,6 +1,6 @@
 ---
 name: thinktank
-description: Fan one self-contained brief to several cheap LLM heads in parallel (GPT-6.1 Sol low x3 via codex, Opus low via the Agent tool, Gemini via agy), merge the findings by agreement, verify single-head findings, report tokens. Use BEFORE answering a code review or audit, a brainstorm or architecture question, or a conclusion drawn from data the user will act on (GSC, metrics, anomaly diagnosis). Also use when the user wants to add, change, pin or remove a model in the panel. Never for single-answer tasks (root cause, one number, one fix), code edits, prose, translation or mechanical steps. Arguments: "off" silences automatic runs for the session, "on" re-enables them.
+description: Fan one self-contained brief to several cheap LLM heads in parallel (GPT-6.2 Sol low x3 via codex, Opus low via the Agent tool, Gemini via agy), merge the findings by agreement, verify single-head findings, report tokens. Use BEFORE answering a code review or audit, a brainstorm or architecture question, or a conclusion drawn from data the user will act on (GSC, metrics, anomaly diagnosis). Also use when the user wants to add, change, pin or remove a model in the panel. Never for single-answer tasks (root cause, one number, one fix), code edits, prose, translation or mechanical steps. Arguments: "off" silences automatic runs for the session, "on" re-enables them.
 ---
 
 # ThinkTank
@@ -55,7 +55,7 @@ Rules: at least 3 heads and 2 model families; at most 7 heads; at most 2 Agent-t
 
 **The Gemini head is Gemini 4 Hydrogen high.** Name it in reports as "Gemini 4 Hydrogen". The runner checks agy's live catalogue first and refuses to start (exit 3) when a requested agy model is missing, so a dead id cannot fail quietly inside a panel; then run `agy models`. When it lists no Hydrogen (Google offers it in Antigravity to paid plans) but still lists `gemini-3.8-flash-high`, re-run with `gemini-flash:1` in place of `gemini:1` and name that head "Gemini 3.8 Flash" in the report; otherwise report to the user before changing the model.
 
-Head names (defaults in `scripts/heads.json`; the user's `~/.config/thinktank/heads.json` overrides, adds or removes heads): `sol` (codex, gpt-6.1-sol, low: the default codex head), `astra` (codex, gpt-6-astra, low: opt-in only, when the user asks for it by name), `gemini` (agy, gemini-4-hydrogen-high), `gemini-flash` (agy, gemini-3.8-flash-high: the previous default, for accounts whose agy has no Hydrogen). `opus`, `sonnet`, `fable` are Agent-tool heads you launch yourself. `python3 "$TT/scripts/heads.py" list` also shows the user's own heads.
+Head names (defaults in `scripts/heads.json`; the user's `~/.config/thinktank/heads.json` overrides, adds or removes heads): `sol` (codex, gpt-6.2-sol, low: the default codex head), `astra` (codex, gpt-6.2-astra, low: opt-in only, when the user asks for it by name), `gemini` (agy, gemini-4-hydrogen-high), `gemini-flash` (agy, gemini-3.8-flash-high: the previous default, for accounts whose agy has no Hydrogen). `opus`, `sonnet`, `fable` are Agent-tool heads you launch yourself. `python3 "$TT/scripts/heads.py" list` also shows the user's own heads.
 
 ## 3. Write the brief
 

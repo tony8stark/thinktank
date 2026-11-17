@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.5 (2026-11-17)
+
+- The codex heads run the GPT-6.2 models: `sol` is `gpt-6.2-sol` (was `gpt-6.1-sol`) and the opt-in `astra` is `gpt-6.2-astra` (was `gpt-6-astra`). The OpenRouter head `or-gpt` runs `openai/gpt-6.2-sol`, at the same catalogue price as before ($2 / $10 per million tokens, a lower bound).
+- `luna` stays on `gpt-6-luna`: there is no 6.2 Luna. To keep an older model, set it in your `~/.config/thinktank/heads.json`; a model you already set there is not changed by this update.
+
 ## 1.5.4 (2026-11-15)
 
 - macOS no longer asks whether "claude" may control "Codex Computer Use" during a run. The Codex desktop app sets the `notify` hook in `~/.codex/config.toml` to its Computer Use helper, which sends Apple Events after every codex turn; started from a head, the request was attributed to Claude Code. codex heads now run with `-c 'notify=[]'`, so the hook does not fire for them. Your own codex sessions keep it.

@@ -1,6 +1,6 @@
 ---
 name: factcheck
-description: Fact-check a text claim by claim before publication. Several cheap web-enabled heads (GPT-6.1 Sol low via codex, Opus via the Agent tool) check every claim against primary sources, a script fetches every cited page and verifies each quote, the orchestrator adjudicates by evidence (not by vote), and the result is a corrected text with sources, plus an optional dossier for a final review by a stronger model (for example GPT Pro). Use for travel articles (entry rules, prices, hours, safety), tax/legal/form content, and any text whose claims move people's money or legal standing. Not for opinion, code, translation or single facts you can check yourself in one search. Arguments: tier quick|standard|money, then the file or text.
+description: Fact-check a text claim by claim before publication. Several cheap web-enabled heads (GPT-6.2 Sol low via codex, Opus via the Agent tool) check every claim against primary sources, a script fetches every cited page and verifies each quote, the orchestrator adjudicates by evidence (not by vote), and the result is a corrected text with sources, plus an optional dossier for a final review by a stronger model (for example GPT Pro). Use for travel articles (entry rules, prices, hours, safety), tax/legal/form content, and any text whose claims move people's money or legal standing. Not for opinion, code, translation or single facts you can check yourself in one search. Arguments: tier quick|standard|money, then the file or text.
 ---
 
 # FactCheck

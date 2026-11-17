@@ -520,7 +520,7 @@ def test_user_head_with_unknown_channel_is_skipped_not_fatal(tmp_path):
     # a config written for a newer plugin must not take every other head down with it
     user = tmp_path / "heads.json"
     user.write_text(json.dumps({"heads": {"future": {"channel": "telepathy", "model": "m"},
-                                          "mine": {"channel": "codex", "model": "gpt-6.1-sol", "effort": "low"}}}))
+                                          "mine": {"channel": "codex", "model": "gpt-6.2-sol", "effort": "low"}}}))
     env = dict(os.environ, THINKTANK_HEADS=str(user))
     r = subprocess.run([sys.executable, os.path.join(SCRIPTS, "heads.py"), "list"], env=env, capture_output=True, text=True)
     names = [line.split("\t")[0] for line in r.stdout.splitlines()]

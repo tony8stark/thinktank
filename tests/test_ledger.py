@@ -4,7 +4,7 @@ HERE = pathlib.Path(__file__).resolve().parent.parent
 def test_ledger():
     d = tempfile.mkdtemp(); out = pathlib.Path(d, "out"); out.mkdir()
     (out / "astra-1.md").write_text("x")
-    json.dump({"head": "astra-1", "channel": "codex", "model": "gpt-6-astra", "status": "ok", "latency_s": 40,
+    json.dump({"head": "astra-1", "channel": "codex", "model": "gpt-6.2-astra", "status": "ok", "latency_s": 40,
                "prompt_tok": 100, "completion_tok": 50, "reasoning_tok": 20, "cost_usd": None, "chars": 1},
               open(out / "astra-1.meta.json", "w"))
     (out / "opus-1.md").write_text("PANEL: opus answering\nfine")   # Agent head, no meta yet

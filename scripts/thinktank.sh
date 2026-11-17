@@ -1,6 +1,6 @@
 #!/bin/bash
 # thinktank.sh <run-dir> <brief.md> [--heads "sol:3,gemini:1"] [--timeout SEC]
-# Default codex head is sol (gpt-6.1-sol); astra is opt-in only.
+# Default codex head is sol (gpt-6.2-sol); astra is opt-in only.
 # Launches codex, agy, opencode, openrouter, local and command heads in parallel on ONE brief. Heads come from heads.json (heads.py).
 # Claude-family heads (opus, sonnet, fable) are launched by Claude via the Agent tool, not here.
 # Writes out/<head>.md and out/<head>.meta.json; prints "THINKTANK DONE ok=N error=M"; exit 0 iff M=0.
