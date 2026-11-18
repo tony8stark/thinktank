@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.5.5 (2026-11-17)
+## 1.5.5 (2026-11-18)
 
 - The codex heads run the GPT-6.2 models: `sol` is `gpt-6.2-sol` (was `gpt-6.1-sol`) and the opt-in `astra` is `gpt-6.2-astra` (was `gpt-6-astra`). The OpenRouter head `or-gpt` runs `openai/gpt-6.2-sol`, at the same catalogue price as before ($2 / $10 per million tokens, a lower bound).
 - `luna` stays on `gpt-6-luna`: there is no 6.2 Luna. To keep an older model, set it in your `~/.config/thinktank/heads.json`; a model you already set there is not changed by this update.
