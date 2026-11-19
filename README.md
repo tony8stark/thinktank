@@ -91,7 +91,7 @@ Only Claude Code is required. The skills detect what else is installed and size 
 |-----------|-------|
 | Claude Code only | Opus (and Sonnet) heads via the Agent tool; works, but one model family shares blind spots |
 | + [codex CLI](https://github.com/openai/codex), signed in | codex heads (`gpt-6.2-sol`, low effort) carry the repeats, Opus adds a second family; recommended |
-| + `agy` (Antigravity CLI) | adds a Gemini head |
+| + `agy` (Antigravity CLI) | adds a Gemini head: `gemini` (Gemini 4 Hydrogen), and on request `gemini-neon` (Gemini 4 Neon) or `gemini-flash` (Gemini 3.8 Flash) |
 | + `OPENROUTER_API_KEY` in the environment | OpenRouter heads (`or-gpt`, `or-gemini`, `or-deepseek`): other model families without installing their CLIs; paid per call |
 | + [OpenCode](https://opencode.ai) CLI, 1.x or 2.x | any model you have set up in OpenCode, once you add a head for it (below) |
 | + a local model server: [Ollama](https://ollama.com), [LM Studio](https://lmstudio.ai) (or LM Studio Bionic), llama.cpp, vLLM, Jan | local heads you add yourself (below): private and free per call, but weaker than hosted models; ThinkTank only, never picked automatically |

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.6 (2026-11-19)
+
+- New opt-in head `gemini-neon`: Gemini 4 Neon (high) through the Antigravity CLI, the larger of Google's two current Gemini 4 models. Ask for it by name ("add Neon to the panel") or pin it with `heads.py set gemini-neon '{"panel": 1}'`. It needs an `agy` whose `agy models` lists `gemini-4-neon-high` (seen on agy 1.5.12); without it the runner refuses the head before launching anything (exit 3).
+- `gemini` stays on Gemini 4 Hydrogen (high), the default Gemini head. On a three-question reasoning check both answered 3 of 3; Neon high took 27 s, Hydrogen high 17 s.
+
 ## 1.5.5 (2026-11-18)
 
 - The codex heads run the GPT-6.2 models: `sol` is `gpt-6.2-sol` (was `gpt-6.1-sol`) and the opt-in `astra` is `gpt-6.2-astra` (was `gpt-6-astra`). The OpenRouter head `or-gpt` runs `openai/gpt-6.2-sol`, at the same catalogue price as before ($2 / $10 per million tokens, a lower bound).
