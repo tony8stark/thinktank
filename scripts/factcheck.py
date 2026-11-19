@@ -130,7 +130,7 @@ def parse_spec(spec):
         ch, model, deff = HEADS[name]
         if name not in WEB and ch == "local": die("local heads have no web access; factcheck needs web heads")
         if name not in WEB: die(f"head '{name}' has no web access (web: false in heads.json); factcheck needs it")
-        if eff and ch == "agy": die(f"agy effort is baked into the model name; use gemini, gemini-neon or gemini-flash, not '{part}'")
+        if eff and ch == "agy": die(f"agy effort is baked into the model name; use gemini, gemini-hydrogen or gemini-flash, not '{part}'")
         base = name if not eff or eff == deff else f"{name}.{eff}"
         for i in range(1, n + 1):
             heads.append({"head": f"{base}-{i}", "name": name, "channel": ch, "model": model, "effort": eff or deff})

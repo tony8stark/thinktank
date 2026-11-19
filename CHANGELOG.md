@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.7 (2026-11-19)
+
+- The `gemini` head now runs Gemini 4 Neon (high), the larger Gemini 4 model, instead of Gemini 4 Hydrogen. It is slower: on one four-head brainstorm panel Neon answered in 166 s and Hydrogen in 87 s.
+- Hydrogen stays as `gemini-hydrogen` (Gemini 4 Hydrogen high). If your `agy models` lists no Neon, the runner refuses `gemini` before launching anything (exit 3) and Claude re-runs the panel with `gemini-hydrogen`, or with `gemini-flash` when there is no Hydrogen either. To keep Hydrogen as your Gemini head: `heads.py set gemini '{"model": "gemini-4-hydrogen-high"}'`.
+- The head `gemini-neon` from 1.5.6 is gone: `gemini` is that head now. The OpenRouter head `or-gemini` stays on `google/gemini-4-hydrogen`; `google/gemini-4-neon` costs twice as much ($3 / $15 per million tokens, catalogue price, a lower bound).
+
 ## 1.5.6 (2026-11-19)
 
 - New opt-in head `gemini-neon`: Gemini 4 Neon (high) through the Antigravity CLI, the larger of Google's two current Gemini 4 models. Ask for it by name ("add Neon to the panel") or pin it with `heads.py set gemini-neon '{"panel": 1}'`. It needs an `agy` whose `agy models` lists `gemini-4-neon-high` (seen on agy 1.5.12); without it the runner refuses the head before launching anything (exit 3).
